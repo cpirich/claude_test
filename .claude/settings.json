@@ -6,5 +6,18 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "plansDirectory": "plans"
+  "plansDirectory": "plans",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun x gh-setup-hooks",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
 }
