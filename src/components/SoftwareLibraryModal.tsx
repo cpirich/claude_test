@@ -730,7 +730,7 @@ export function SoftwareLibraryModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
 

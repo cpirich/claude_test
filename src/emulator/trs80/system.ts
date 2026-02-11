@@ -132,11 +132,22 @@ export class TRS80System {
     return total;
   }
 
-  /** Check if it's time to fire a timer interrupt. */
+  /**
+   * Check if it's time to fire a timer interrupt.
+   *
+   * The TRS-80's INT line is level-triggered: it stays asserted until
+   * the CPU acknowledges by reading port $FF.  We model this by
+   * attempting irq() whenever timerInterruptPending is true, not just
+   * at the moment the timer fires.  This ensures that an interrupt
+   * pending while the CPU has interrupts disabled (DI) gets delivered
+   * as soon as the CPU re-enables them (EI).
+   */
   private checkTimerInterrupt(): void {
     if (this.cyclesSinceInterrupt >= CYCLES_PER_INTERRUPT) {
       this.cyclesSinceInterrupt -= CYCLES_PER_INTERRUPT;
       this.io.timerInterruptPending = true;
+    }
+    if (this.io.timerInterruptPending) {
       this.cpu.irq();
     }
   }

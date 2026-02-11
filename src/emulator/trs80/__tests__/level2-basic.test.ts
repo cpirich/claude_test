@@ -144,7 +144,8 @@ describe('Level II BASIC', () => {
 
       // Press ENTER to accept default memory size
       typeKey(system, 'ENTER');
-      runCycles(system, 2_000_000);
+      // Level II BASIC does a memory test after MEMORY SIZE? — needs many cycles
+      runCycles(system, 10_000_000);
 
       const lines = getScreenLines(system);
       const rows = getAllRows(system);
@@ -161,9 +162,9 @@ describe('Level II BASIC', () => {
     function bootToReady(): void {
       system.loadROM(rom);
       system.reset();
-      runCycles(system, 2_000_000); // Boot to MEMORY SIZE?
-      typeKey(system, 'ENTER');      // Accept default
-      runCycles(system, 2_000_000); // Wait for READY
+      runCycles(system, 2_000_000);  // Boot to MEMORY SIZE?
+      typeKey(system, 'ENTER');       // Accept default
+      runCycles(system, 10_000_000); // Memory test + initialization to READY
     }
 
     it('should execute FOR loop with all iterations', () => {
@@ -193,6 +194,239 @@ describe('Level II BASIC', () => {
       const allText = rows.join('\n');
 
       // System should not crash
+      expect(system.isHalted()).toBe(false);
+
+      // All 5 numbers should appear
+      for (let n = 1; n <= 5; n++) {
+        expect(allText).toContain(String(n));
+      }
+
+      // READY should appear after RUN
+      const runIdx = rows.findIndex(l => l.includes('RUN'));
+      const readyIdx = rows.findLastIndex(l => l.includes('READY'));
+      expect(readyIdx).toBeGreaterThan(runIdx);
+    });
+
+    it('should execute FOR loop with expressions (I*I)', () => {
+      bootToReady();
+
+      // Type program from bug report: PRINT I*I
+      typeString(system, '10 FOR I=1 TO 5');
+      typeKey(system, 'ENTER');
+      runCycles(system, 200_000);
+
+      typeString(system, '20 PRINT I*I');
+      typeKey(system, 'ENTER');
+      runCycles(system, 200_000);
+
+      typeString(system, '30 NEXT I');
+      typeKey(system, 'ENTER');
+      runCycles(system, 200_000);
+
+      typeString(system, 'RUN');
+      typeKey(system, 'ENTER');
+      runCycles(system, 10_000_000);
+
+      const rows = getAllRows(system);
+      console.log('Level II FOR I*I — screen:');
+      rows.forEach((l, i) => console.log(`  Row ${i}: "${l}"`));
+
+      const allText = rows.join('\n');
+
+      expect(system.isHalted()).toBe(false);
+
+      // Should print squares: 1, 4, 9, 16, 25
+      expect(allText).toContain('1');
+      expect(allText).toContain('4');
+      expect(allText).toContain('9');
+      expect(allText).toContain('16');
+      expect(allText).toContain('25');
+
+      // READY should appear after program ends
+      const runIdx = rows.findIndex(l => l.includes('RUN'));
+      const readyIdx = rows.findLastIndex(l => l.includes('READY'));
+      expect(readyIdx).toBeGreaterThan(runIdx);
+    });
+
+    it('should complete FOR loop with frame-by-frame execution (browser pattern)', () => {
+      // Simulate how the browser runs: ~29,567 cycles per frame at 60fps
+      // This is the pattern used by useTrs80.ts via requestAnimationFrame
+      const CYCLES_PER_FRAME = Math.round(1_774_000 / 60); // 29567
+
+      system.loadROM(rom);
+      system.reset();
+
+      // Boot: run frames until MEMORY SIZE? appears
+      for (let f = 0; f < 200; f++) system.run(CYCLES_PER_FRAME);
+
+      // Type ENTER for MEMORY SIZE?
+      system.keyDown('ENTER');
+      for (let f = 0; f < 5; f++) system.run(CYCLES_PER_FRAME);
+      system.keyUp('ENTER');
+
+      // Wait for READY (memory test takes many frames)
+      for (let f = 0; f < 600; f++) system.run(CYCLES_PER_FRAME);
+
+      // Verify READY appeared
+      let lines = getScreenLines(system);
+      const hasReady = lines.some(l => l.includes('READY'));
+      console.log('Frame-by-frame boot — READY:', hasReady);
+
+      // Type program line by line using browser-like timing
+      // Each key: hold for ~3 frames (50ms at 60fps), release, wait ~3 frames
+      const typeKeyFrames = (key: Parameters<typeof system.keyDown>[0]) => {
+        system.keyDown(key);
+        for (let f = 0; f < 3; f++) system.run(CYCLES_PER_FRAME);
+        system.keyUp(key);
+        for (let f = 0; f < 3; f++) system.run(CYCLES_PER_FRAME);
+      };
+
+      const typeShiftedKeyFrames = (key: Parameters<typeof system.keyDown>[0]) => {
+        system.keyDown('SHIFT');
+        system.run(CYCLES_PER_FRAME);
+        system.keyDown(key);
+        for (let f = 0; f < 3; f++) system.run(CYCLES_PER_FRAME);
+        system.keyUp(key);
+        system.keyUp('SHIFT');
+        for (let f = 0; f < 3; f++) system.run(CYCLES_PER_FRAME);
+      };
+
+      const typeStringFrames = (text: string) => {
+        for (const ch of text) {
+          const upper = ch.toUpperCase();
+          if (upper >= 'A' && upper <= 'Z') typeKeyFrames(upper as any);
+          else if (upper >= '0' && upper <= '9') typeKeyFrames(upper as any);
+          else if (ch === ' ') typeKeyFrames('SPACE');
+          else if (ch === '=') typeShiftedKeyFrames('-');
+          else if (ch === '*') typeShiftedKeyFrames(':');
+          else if (ch === '+') typeShiftedKeyFrames(';');
+          else if (ch === '"') typeShiftedKeyFrames('2');
+        }
+      };
+
+      // 10 FOR I=1 TO 5
+      typeStringFrames('10 FOR I=1 TO 5');
+      typeKeyFrames('ENTER');
+      for (let f = 0; f < 10; f++) system.run(CYCLES_PER_FRAME);
+
+      // 20 PRINT I*I
+      typeStringFrames('20 PRINT I*I');
+      typeKeyFrames('ENTER');
+      for (let f = 0; f < 10; f++) system.run(CYCLES_PER_FRAME);
+
+      // 30 NEXT I
+      typeStringFrames('30 NEXT I');
+      typeKeyFrames('ENTER');
+      for (let f = 0; f < 10; f++) system.run(CYCLES_PER_FRAME);
+
+      // RUN
+      typeStringFrames('RUN');
+      typeKeyFrames('ENTER');
+
+      // Let it run for several seconds worth of frames
+      for (let f = 0; f < 300; f++) system.run(CYCLES_PER_FRAME);
+
+      const rows = getAllRows(system);
+      console.log('Frame-by-frame FOR I*I — screen:');
+      rows.forEach((l, i) => console.log(`  Row ${i}: "${l}"`));
+
+      const allText = rows.join('\n');
+      expect(system.isHalted()).toBe(false);
+
+      // Should print squares: 1, 4, 9, 16, 25
+      expect(allText).toContain('1');
+      expect(allText).toContain('4');
+      expect(allText).toContain('9');
+      expect(allText).toContain('16');
+      expect(allText).toContain('25');
+
+      // READY should appear after program ends
+      const runIdx = rows.findIndex(l => l.includes('RUN'));
+      const readyIdx = rows.findLastIndex(l => l.includes('READY'));
+      expect(readyIdx).toBeGreaterThan(runIdx);
+    });
+
+    it('should handle typeCommand timing (keyDown+keyUp between frames)', () => {
+      // This test reproduces the EXACT browser typeCommand pattern:
+      // - keyDown fires via setTimeout (between animation frames)
+      // - keyUp fires via setTimeout 15ms later (also between frames)
+      // - NO CPU cycles execute between keyDown and keyUp
+      // - CPU only advances during requestAnimationFrame (1 frame = 29,567 cycles)
+      //
+      // With MIN_HOLD_CYCLES too low, the key vanishes from the matrix before
+      // the interrupt-driven keyboard scan fires, and keystrokes are lost.
+      const CYCLES_PER_FRAME = Math.round(1_774_000 / 60); // 29567
+
+      system.loadROM(rom);
+      system.reset();
+
+      // Boot to MEMORY SIZE?
+      for (let f = 0; f < 200; f++) system.run(CYCLES_PER_FRAME);
+
+      // Press ENTER between frames (no CPU between down and up)
+      system.keyDown('ENTER');
+      system.keyUp('ENTER');
+      for (let f = 0; f < 5; f++) system.run(CYCLES_PER_FRAME);
+
+      // Wait for READY
+      for (let f = 0; f < 600; f++) system.run(CYCLES_PER_FRAME);
+
+      // Simulate typeCommand: keyDown + keyUp with NO CPU between them,
+      // then run ~3 frames (50ms / 16.67ms ≈ 3 frames) before next char
+      const typeKeyBrowser = (key: Parameters<typeof system.keyDown>[0]) => {
+        system.keyDown(key);
+        system.keyUp(key); // Both fire between frames — no CPU execution between them
+        for (let f = 0; f < 3; f++) system.run(CYCLES_PER_FRAME);
+      };
+
+      const typeShiftedKeyBrowser = (key: Parameters<typeof system.keyDown>[0]) => {
+        system.keyDown('SHIFT');
+        system.keyDown(key);
+        system.keyUp(key);
+        system.keyUp('SHIFT');
+        for (let f = 0; f < 3; f++) system.run(CYCLES_PER_FRAME);
+      };
+
+      const typeStringBrowser = (text: string) => {
+        for (const ch of text) {
+          const upper = ch.toUpperCase();
+          if (upper >= 'A' && upper <= 'Z') typeKeyBrowser(upper as any);
+          else if (upper >= '0' && upper <= '9') typeKeyBrowser(upper as any);
+          else if (ch === ' ') typeKeyBrowser('SPACE');
+          else if (ch === '=') typeShiftedKeyBrowser('-');
+          else if (ch === '*') typeShiftedKeyBrowser(':');
+          else if (ch === '+') typeShiftedKeyBrowser(';');
+          else if (ch === '"') typeShiftedKeyBrowser('2');
+        }
+      };
+
+      // Type: 10 FOR I=1 TO 5
+      typeStringBrowser('10 FOR I=1 TO 5');
+      typeKeyBrowser('ENTER');
+      for (let f = 0; f < 10; f++) system.run(CYCLES_PER_FRAME);
+
+      // Type: 20 PRINT I
+      typeStringBrowser('20 PRINT I');
+      typeKeyBrowser('ENTER');
+      for (let f = 0; f < 10; f++) system.run(CYCLES_PER_FRAME);
+
+      // Type: 30 NEXT I
+      typeStringBrowser('30 NEXT I');
+      typeKeyBrowser('ENTER');
+      for (let f = 0; f < 10; f++) system.run(CYCLES_PER_FRAME);
+
+      // Type: RUN
+      typeStringBrowser('RUN');
+      typeKeyBrowser('ENTER');
+
+      // Let the program run
+      for (let f = 0; f < 300; f++) system.run(CYCLES_PER_FRAME);
+
+      const rows = getAllRows(system);
+      console.log('typeCommand timing test — screen:');
+      rows.forEach((l, i) => console.log(`  Row ${i}: "${l}"`));
+
+      const allText = rows.join('\n');
       expect(system.isHalted()).toBe(false);
 
       // All 5 numbers should appear

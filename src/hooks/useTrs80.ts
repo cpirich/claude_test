@@ -18,6 +18,16 @@ export interface Trs80State {
 }
 
 /**
+ * Characters that need synthetic SHIFT on the TRS-80 but arrive unshifted
+ * from a modern keyboard. Maps browser key → TRS-80 base key.
+ * The caller must also press/release SHIFT in the emulator.
+ */
+const SYNTHETIC_SHIFT: Record<string, TRS80Key> = {
+  '=': '-',   // = is SHIFT+- on TRS-80
+  "'": '7',   // ' is SHIFT+7 on TRS-80
+};
+
+/**
  * Map browser key events to TRS-80 key identifiers.
  * Returns [keyDown, keyUp] pairs since the TRS-80 uses press/release.
  */
@@ -142,6 +152,15 @@ export function useTrs80() {
 
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
+    // Characters that need synthetic SHIFT on TRS-80 but are unshifted on modern keyboards
+    const synthKey = SYNTHETIC_SHIFT[e.key];
+    if (synthKey) {
+      e.preventDefault();
+      emu.keyDown('SHIFT');
+      emu.keyDown(synthKey);
+      return;
+    }
+
     const trsKey = mapKeyToTRS80(e);
     if (trsKey) {
       e.preventDefault();
@@ -153,6 +172,14 @@ export function useTrs80() {
   const onKeyUp = useCallback((e: KeyboardEvent) => {
     const emu = emulatorRef.current;
     if (!emu) return;
+
+    // Release synthetic SHIFT for characters that needed it on keyDown
+    const synthKey = SYNTHETIC_SHIFT[e.key];
+    if (synthKey) {
+      emu.keyUp(synthKey);
+      emu.keyUp('SHIFT');
+      return;
+    }
 
     const trsKey = mapKeyToTRS80(e);
     if (trsKey) {

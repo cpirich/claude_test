@@ -135,7 +135,8 @@ describe('TRS80System', () => {
       system.run(1000);
       system.keyUp('A');
 
-      system.run(10_000);
+      // Need enough cycles for hold timer to expire (50,000) + ROM to process key
+      system.run(55_000);
 
       // After key processing, should be back in polling loop
       // and 'A' should appear in video RAM
@@ -149,14 +150,14 @@ describe('TRS80System', () => {
       system.run(5_000);
       system.keyUp('H');
 
-      system.run(10_000);
+      system.run(55_000);
 
       // Type 'I'
       system.keyDown('I');
       system.run(5_000);
       system.keyUp('I');
 
-      system.run(10_000);
+      system.run(55_000);
 
       const row1 = system.video.getRow(1);
       expect(row1.trimEnd()).toContain('HI');
@@ -167,21 +168,21 @@ describe('TRS80System', () => {
       system.keyDown('A');
       system.run(5_000);
       system.keyUp('A');
-      system.run(10_000);
+      system.run(55_000);
 
       // Press ENTER
       system.keyDown('ENTER');
       system.run(5_000);
       system.keyUp('ENTER');
 
-      system.run(10_000);
+      system.run(55_000);
 
       // Type 'B' — should appear on the next line
       system.keyDown('B');
       system.run(5_000);
       system.keyUp('B');
 
-      system.run(10_000);
+      system.run(55_000);
 
       expect(system.video.getRow(1).trimEnd()).toContain('A');
       expect(system.video.getRow(2).trimEnd()).toContain('B');
@@ -192,7 +193,7 @@ describe('TRS80System', () => {
       system.run(5_000);
       system.keyUp('3');
 
-      system.run(10_000);
+      system.run(55_000);
 
       expect(system.video.getRow(1).trimEnd()).toContain('3');
     });
@@ -202,7 +203,7 @@ describe('TRS80System', () => {
       system.run(5_000);
       system.keyUp('9');
 
-      system.run(10_000);
+      system.run(55_000);
 
       expect(system.video.getRow(1).trimEnd()).toContain('9');
     });
@@ -212,19 +213,19 @@ describe('TRS80System', () => {
       system.run(5_000);
       system.keyUp('X');
 
-      system.run(10_000);
+      system.run(55_000);
 
       system.keyDown('Y');
       system.run(5_000);
       system.keyUp('Y');
 
-      system.run(10_000);
+      system.run(55_000);
 
       system.keyDown('Z');
       system.run(5_000);
       system.keyUp('Z');
 
-      system.run(10_000);
+      system.run(55_000);
 
       expect(system.video.getRow(1).trimEnd()).toContain('XYZ');
     });
@@ -233,18 +234,18 @@ describe('TRS80System', () => {
       system.keyDown('A');
       system.run(5_000);
       system.keyUp('A');
-      system.run(10_000);
+      system.run(55_000);
 
       system.keyDown('SPACE');
       system.run(5_000);
       system.keyUp('SPACE');
-      system.run(10_000);
+      system.run(55_000);
 
       system.keyDown('B');
       system.run(5_000);
       system.keyUp('B');
 
-      system.run(10_000);
+      system.run(55_000);
 
       expect(system.video.getRow(1).trimEnd()).toBe('A B');
     });
@@ -253,13 +254,13 @@ describe('TRS80System', () => {
       system.keyDown('SHIFT');
       system.run(5_000);
       system.keyUp('SHIFT');
-      system.run(10_000);
+      system.run(55_000);
 
       // After SHIFT, system should still be responsive
       system.keyDown('A');
       system.run(5_000);
       system.keyUp('A');
-      system.run(10_000);
+      system.run(55_000);
 
       expect(system.video.getRow(1).trimEnd()).toContain('A');
     });

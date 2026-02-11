@@ -60,7 +60,7 @@ describe('TRS80Keyboard', () => {
       expect(kb.read(0x3801)).toBe(0x02); // Still held by timer
 
       // Advance past hold time — now both timer expired and physical released
-      kb.tick(6000);
+      kb.tick(55_000);
       expect(kb.read(0x3801)).toBe(0); // Released from matrix
     });
 
@@ -172,7 +172,7 @@ describe('TRS80Keyboard', () => {
 
       // Release UP: keyUp + tick past hold timer
       kb.keyUp('UP');
-      kb.tick(6000);
+      kb.tick(55_000);
       expect(kb.read(0x3840)).toBe(0); // UP released
 
       kb.keyDown('DOWN');
@@ -185,14 +185,14 @@ describe('TRS80Keyboard', () => {
       kb.keyDown('A');
       kb.keyUp('A'); // Physical release, but hold timer active
 
-      // Partial tick — not enough to expire timer
-      kb.tick(2000);
+      // Partial tick — not enough to expire timer (MIN_HOLD_CYCLES = 50,000)
+      kb.tick(20_000);
       expect(kb.read(0x3801)).toBe(0x02); // Still held by timer
 
-      kb.tick(2000);
+      kb.tick(20_000);
       expect(kb.read(0x3801)).toBe(0x02); // Still held by timer
 
-      kb.tick(2000); // Now past MIN_HOLD_CYCLES (5600)
+      kb.tick(15_000); // Now past MIN_HOLD_CYCLES (50,000)
       expect(kb.read(0x3801)).toBe(0); // Timer expired + physical released → cleared
     });
 
@@ -200,7 +200,7 @@ describe('TRS80Keyboard', () => {
       kb.keyDown('A');
 
       // Timer expires but key still physically held
-      kb.tick(6000);
+      kb.tick(55_000);
       expect(kb.read(0x3801)).toBe(0x02); // Still active — physical overrides
 
       // Now release physically
@@ -220,7 +220,7 @@ describe('TRS80Keyboard', () => {
     it('new key after full release is immediately visible', () => {
       kb.keyDown('A');
       kb.keyUp('A');
-      kb.tick(6000); // Timer expired + physical released → A cleared
+      kb.tick(55_000); // Timer expired + physical released → A cleared
 
       // New key should show up immediately
       kb.keyDown('B');

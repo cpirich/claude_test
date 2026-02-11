@@ -130,11 +130,21 @@ const KEY_MAP: Record<TRS80Key, MatrixPosition> = {
 
 /**
  * Minimum cycles a key stays in the matrix after keyDown, regardless of keyUp.
- * The stub ROM polls ~every 10 cycles, then captures rows and waits for release.
- * ~5600 cycles ≈ 3.2ms at 1.774 MHz — gives the ROM hundreds of poll iterations
- * to detect the key before the hold expires and allows release detection.
+ *
+ * This value must exceed the longest keyboard scan interval of any supported ROM:
+ *   - Stub ROM: polls every ~10 cycles (any hold time works)
+ *   - Level I/II BASIC: scan via timer interrupt every ~44,350 cycles (~40 Hz)
+ *
+ * In the browser, typeCommand calls keyDown/keyUp via setTimeout, and both
+ * often fire between animation frames when no CPU cycles execute.  The hold
+ * timer is the ONLY thing keeping the key visible to the CPU.  With the old
+ * value of 5600 the key vanished after ~3.2ms — well before the next
+ * interrupt-driven scan at ~25ms, causing most keystrokes to be missed.
+ *
+ * 50,000 cycles ≈ 28ms at 1.774 MHz — guarantees at least one full interrupt
+ * period (44,350 cycles) elapses while the key is in the matrix.
  */
-const MIN_HOLD_CYCLES = 5600;
+const MIN_HOLD_CYCLES = 50_000;
 
 export class TRS80Keyboard {
   /** 8 rows, each an 8-bit value of currently pressed keys. */

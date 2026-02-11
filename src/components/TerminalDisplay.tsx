@@ -312,6 +312,10 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
 
   const displayLines = lines.length > 0 ? lines : Array(rows).fill(" ".repeat(cols));
 
+  // Hide emulator cursor when BASIC draws its own underscore cursor
+  const cursorChar = displayLines[cursorRow]?.charAt(cursorCol);
+  const showCursor = cursorChar !== '_';
+
   return (
     <div
       ref={containerRef}
@@ -366,7 +370,7 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
       >
         {displayLines.map((line: string, i: number) => (
           <div key={i}>
-            {i === cursorRow ? (
+            {i === cursorRow && showCursor ? (
               <>
                 {line.substring(0, cursorCol)}
                 {cursorVisible ? (
