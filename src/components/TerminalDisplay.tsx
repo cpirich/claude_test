@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useImperativeHandle } from "react";
 import { useApple1 } from "@/hooks/useApple1";
 import { useTrs80 } from "@/hooks/useTrs80";
 import { SoftwareLibraryModal } from "./SoftwareLibraryModal";
@@ -67,16 +67,7 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
   const { state, keyPress, reset, loadSoftware, typeCommand } = useApple1();
 
   // Expose typeCommand via ref
-  useEffect(() => {
-    if (terminalHandleRef && 'current' in terminalHandleRef) {
-      (terminalHandleRef as React.MutableRefObject<TerminalHandle | null>).current = { typeCommand };
-    }
-    return () => {
-      if (terminalHandleRef && 'current' in terminalHandleRef) {
-        (terminalHandleRef as React.MutableRefObject<TerminalHandle | null>).current = null;
-      }
-    };
-  }, [terminalHandleRef, typeCommand]);
+  useImperativeHandle(terminalHandleRef, () => ({ typeCommand }), [typeCommand]);
   const { lines, cursorRow, cursorCol } = state;
   const cols = TERMINAL_COLS.apple1;
   const rows = TERMINAL_ROWS.apple1;
@@ -239,16 +230,7 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
   const { state, onKeyDown, onKeyUp, reset, loadSoftware, typeCommand } = useTrs80();
 
   // Expose typeCommand via ref
-  useEffect(() => {
-    if (terminalHandleRef && 'current' in terminalHandleRef) {
-      (terminalHandleRef as React.MutableRefObject<TerminalHandle | null>).current = { typeCommand };
-    }
-    return () => {
-      if (terminalHandleRef && 'current' in terminalHandleRef) {
-        (terminalHandleRef as React.MutableRefObject<TerminalHandle | null>).current = null;
-      }
-    };
-  }, [terminalHandleRef, typeCommand]);
+  useImperativeHandle(terminalHandleRef, () => ({ typeCommand }), [typeCommand]);
 
   const { lines, cursorRow, cursorCol } = state;
   const cols = TERMINAL_COLS.trs80;

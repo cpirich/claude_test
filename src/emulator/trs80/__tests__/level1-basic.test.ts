@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TRS80System } from '../system';
+import type { TRS80Key } from '../keyboard';
 import { decodeLevel1ROM } from './level1-test-rom';
 
 /** Run the system for a specified number of cycles. */
@@ -38,9 +39,9 @@ function typeString(system: TRS80System, text: string): void {
   for (const ch of text) {
     const upper = ch.toUpperCase();
     if (upper >= 'A' && upper <= 'Z') {
-      typeKey(system, upper as any);
+      typeKey(system, upper as TRS80Key);
     } else if (upper >= '0' && upper <= '9') {
-      typeKey(system, upper as any);
+      typeKey(system, upper as TRS80Key);
     } else if (ch === ' ') {
       typeKey(system, 'SPACE');
     } else if (ch === '=') {

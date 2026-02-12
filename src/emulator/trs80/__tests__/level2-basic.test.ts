@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TRS80System } from '../system';
+import type { TRS80Key } from '../keyboard';
 import { decodeLevel2ROM } from './level2-test-rom';
 
 /** Run the system for a specified number of cycles. */
@@ -38,9 +39,9 @@ function typeString(system: TRS80System, text: string): void {
   for (const ch of text) {
     const upper = ch.toUpperCase();
     if (upper >= 'A' && upper <= 'Z') {
-      typeKey(system, upper as any);
+      typeKey(system, upper as TRS80Key);
     } else if (upper >= '0' && upper <= '9') {
-      typeKey(system, upper as any);
+      typeKey(system, upper as TRS80Key);
     } else if (ch === ' ') {
       typeKey(system, 'SPACE');
     } else if (ch === '=') {
@@ -268,7 +269,7 @@ describe('Level II BASIC', () => {
       for (let f = 0; f < 600; f++) system.run(CYCLES_PER_FRAME);
 
       // Verify READY appeared
-      let lines = getScreenLines(system);
+      const lines = getScreenLines(system);
       const hasReady = lines.some(l => l.includes('READY'));
       console.log('Frame-by-frame boot — READY:', hasReady);
 
@@ -294,8 +295,8 @@ describe('Level II BASIC', () => {
       const typeStringFrames = (text: string) => {
         for (const ch of text) {
           const upper = ch.toUpperCase();
-          if (upper >= 'A' && upper <= 'Z') typeKeyFrames(upper as any);
-          else if (upper >= '0' && upper <= '9') typeKeyFrames(upper as any);
+          if (upper >= 'A' && upper <= 'Z') typeKeyFrames(upper as TRS80Key);
+          else if (upper >= '0' && upper <= '9') typeKeyFrames(upper as TRS80Key);
           else if (ch === ' ') typeKeyFrames('SPACE');
           else if (ch === '=') typeShiftedKeyFrames('-');
           else if (ch === '*') typeShiftedKeyFrames(':');
@@ -390,8 +391,8 @@ describe('Level II BASIC', () => {
       const typeStringBrowser = (text: string) => {
         for (const ch of text) {
           const upper = ch.toUpperCase();
-          if (upper >= 'A' && upper <= 'Z') typeKeyBrowser(upper as any);
-          else if (upper >= '0' && upper <= '9') typeKeyBrowser(upper as any);
+          if (upper >= 'A' && upper <= 'Z') typeKeyBrowser(upper as TRS80Key);
+          else if (upper >= '0' && upper <= '9') typeKeyBrowser(upper as TRS80Key);
           else if (ch === ' ') typeKeyBrowser('SPACE');
           else if (ch === '=') typeShiftedKeyBrowser('-');
           else if (ch === '*') typeShiftedKeyBrowser(':');

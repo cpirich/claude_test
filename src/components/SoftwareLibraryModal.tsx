@@ -701,14 +701,18 @@ export function SoftwareLibraryModal({
   onClose,
   onLoad,
   catalog,
-  machine,
+  machine: _machine,
 }: SoftwareLibraryModalProps) {
   const [activeTab, setActiveTab] = useState<TopTab>("browse");
 
-  // Reset to browse tab when modal opens
-  useEffect(() => {
-    if (isOpen) setActiveTab("browse");
-  }, [isOpen]);
+  // Reset to browse tab when modal opens (React-recommended state-during-render pattern)
+  const [lastIsOpen, setLastIsOpen] = useState(isOpen);
+  if (isOpen !== lastIsOpen) {
+    setLastIsOpen(isOpen);
+    if (isOpen) {
+      setActiveTab("browse");
+    }
+  }
 
   // Escape to close
   const handleKeyDown = useCallback(
