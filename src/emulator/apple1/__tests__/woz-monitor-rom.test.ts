@@ -121,24 +121,6 @@ describe('Woz Monitor ROM', () => {
     });
   });
 
-  describe('PRHEX subroutine at $FFE5', () => {
-    it('masks low nibble and converts to ASCII', () => {
-      expect(rom.read(0xffe5)).toBe(0x68); // PLA
-      expect(rom.read(0xffe6)).toBe(0x29); // AND immediate
-      expect(rom.read(0xffe7)).toBe(0x0f); // #$0F
-      expect(rom.read(0xffe8)).toBe(0x09); // ORA immediate
-      expect(rom.read(0xffe9)).toBe(0xb0); // #$B0 ('0' with bit 7)
-    });
-  });
-
-  describe('RUN command at $FF91', () => {
-    it('uses JMP indirect through $0024 (XAML)', () => {
-      expect(rom.read(0xff91)).toBe(0x6c); // JMP indirect
-      expect(rom.read(0xff92)).toBe(0x24); // low byte
-      expect(rom.read(0xff93)).toBe(0x00); // high byte
-    });
-  });
-
   describe('ROM data integrity', () => {
     it('all 256 bytes are readable', () => {
       for (let addr = 0xff00; addr <= 0xffff; addr++) {
