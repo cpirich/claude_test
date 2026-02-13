@@ -27,7 +27,7 @@ test.describe('Altair 8800 Emulator', () => {
   });
 
   test('should show CPU specs badge', async ({ page }) => {
-    await expect(page.locator('text=8080')).toBeVisible();
+    await expect(page.locator('[data-slot="badge"]', { hasText: '8080' })).toBeVisible();
   });
 
   test('should show 80×24 display dimensions', async ({ page }) => {

@@ -96,7 +96,7 @@ export async function typeProgram(
  * Click the RESET button in the terminal header.
  */
 export async function clickReset(page: Page): Promise<void> {
-  await page.locator('button', { hasText: 'RESET' }).click();
+  await page.getByTitle('Reset (cold boot)').click();
 }
 
 /**
