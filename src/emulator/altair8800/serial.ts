@@ -73,8 +73,11 @@ export class Altair2SIO implements IOBus {
       }
 
       default:
-        // Other ports: return 0xFF (floating bus)
-        return 0xff;
+        // Other ports: return 0x00 (sense switches default off).
+        // Real Altair sense switches are active-low; 0x00 = all off.
+        // BASIC ROMs read port 0xFF to determine serial board type —
+        // 0x00 selects the 2SIO board (ports 0x10/0x11).
+        return 0x00;
     }
   }
 

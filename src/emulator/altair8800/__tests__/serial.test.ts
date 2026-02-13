@@ -107,10 +107,10 @@ describe('Altair2SIO', () => {
   });
 
   describe('other ports', () => {
-    it('should return 0xFF for unhandled input ports', () => {
-      expect(serial.in(0x00)).toBe(0xff);
-      expect(serial.in(0x20)).toBe(0xff);
-      expect(serial.in(0xff)).toBe(0xff);
+    it('should return 0x00 for unhandled input ports', () => {
+      expect(serial.in(0x00)).toBe(0x00);
+      expect(serial.in(0x20)).toBe(0x00);
+      expect(serial.in(0xff)).toBe(0x00);
     });
 
     it('should ignore writes to unhandled ports', () => {
