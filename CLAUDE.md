@@ -22,18 +22,17 @@ The app is dark-mode only (terminal emulator). The `dark` class is set on `<html
 
 **IMPORTANT: Always run tests before committing changes.**
 
-Before committing any code changes, you MUST verify that all tests pass:
+Before committing any code changes, you MUST verify:
 
-```bash
-npx vitest run
-```
+1. **Type checking passes**: `npx tsc --noEmit`
+2. **All tests pass**: `npx vitest run`
 
-All tests must pass (exit code 0) before creating a commit. This ensures:
+Both commands must succeed (exit code 0) before creating a commit. This ensures:
+- Type safety is maintained across all TypeScript files
 - No regressions in CPU emulation or UI components
-- Type safety is maintained
 - Integration tests validate end-to-end functionality
 
-If tests fail, fix the issues before committing. Do not skip or disable tests without a clear reason and TODO comment explaining why.
+If type checking or tests fail, fix the issues before committing. Do not skip or disable tests without a clear reason and TODO comment explaining why.
 
 ## GitHub CLI
 
