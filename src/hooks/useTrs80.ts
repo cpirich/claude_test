@@ -196,14 +196,6 @@ export function useTrs80() {
     setState((prev) => ({ ...prev, currentSoftware: null }));
   }, []);
 
-  /** Load a software entry into memory. */
-  const loadSoftware = useCallback((entry: SoftwareEntry) => {
-    const emu = emulatorRef.current;
-    if (!emu) return;
-    emu.loadSoftware(entry);
-    setState((prev) => ({ ...prev, currentSoftware: entry.id }));
-  }, []);
-
   /** Type a command string into the terminal and submit with ENTER. */
   const typeCommand = useCallback((text: string) => {
     const emu = emulatorRef.current;
@@ -266,6 +258,21 @@ export function useTrs80() {
       i++;
     }, 50);
   }, []);
+
+  /** Load a software entry into memory. */
+  const loadSoftware = useCallback((entry: SoftwareEntry) => {
+    const emu = emulatorRef.current;
+    if (!emu) return;
+
+    // Handle textMode BAS files by typing the listing instead of loading binary
+    if (entry.textMode && entry.listing) {
+      typeCommand(entry.listing);
+      setState((prev) => ({ ...prev, currentSoftware: entry.id }));
+    } else {
+      emu.loadSoftware(entry);
+      setState((prev) => ({ ...prev, currentSoftware: entry.id }));
+    }
+  }, [typeCommand]);
 
   return { state, onKeyDown, onKeyUp, reset, loadSoftware, typeCommand, emulator: emulatorRef };
 }
