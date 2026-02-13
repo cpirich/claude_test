@@ -22,7 +22,10 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev',
+    // On CI, serve the pre-built production build (npm run build runs in an
+    // earlier CI step) to avoid Fast Refresh / HMR issues that can reset
+    // emulator state mid-test. Locally, use the dev server for HMR.
+    command: process.env.CI ? 'npm run start' : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
