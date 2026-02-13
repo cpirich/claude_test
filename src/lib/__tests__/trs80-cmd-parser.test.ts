@@ -178,4 +178,43 @@ describe("parseTRS80CMD", () => {
     expect(result.regions[0].startAddress).toBe(0xabcd);
     expect(result.entryPoint).toBe(0x1234);
   });
+
+  test("handles address wraparound at 0xFFFF", () => {
+    // Data block starting at $FFFF with 2 data bytes would wrap around
+    // The parser just stores address + data as-is without validating wraparound
+    const cmd = new Uint8Array([
+      0x01, 0x04,       // Type 01, length 4 (2 addr + 2 data)
+      0xff, 0xff,       // Load address $FFFF (little-endian)
+      0xaa, 0xbb,       // 2 data bytes
+      0x02, 0x02,       // Type 02, length 2
+      0xff, 0xff,       // Entry point $FFFF
+    ]);
+
+    const result = parseTRS80CMD(cmd);
+
+    expect(result.regions).toHaveLength(1);
+    expect(result.regions[0].startAddress).toBe(0xffff);
+    expect(result.regions[0].data).toEqual(new Uint8Array([0xaa, 0xbb]));
+    expect(result.entryPoint).toBe(0xffff);
+  });
+
+  test("handles address 0xFFFE with multi-byte data block", () => {
+    // Data block starting at $FFFE with 3 data bytes
+    // This would wrap: FFFE, FFFF, 0000 in a real 16-bit address space
+    // Parser accepts it as-is since it just stores address + data
+    const cmd = new Uint8Array([
+      0x01, 0x05,       // Type 01, length 5 (2 addr + 3 data)
+      0xfe, 0xff,       // Load address $FFFE (little-endian)
+      0x11, 0x22, 0x33, // 3 data bytes
+      0x02, 0x02,       // Type 02, length 2
+      0xfe, 0xff,       // Entry point $FFFE
+    ]);
+
+    const result = parseTRS80CMD(cmd);
+
+    expect(result.regions).toHaveLength(1);
+    expect(result.regions[0].startAddress).toBe(0xfffe);
+    expect(result.regions[0].data).toEqual(new Uint8Array([0x11, 0x22, 0x33]));
+    expect(result.entryPoint).toBe(0xfffe);
+  });
 });

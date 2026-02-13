@@ -374,4 +374,31 @@ describe("parseProgram", () => {
     expect(result.format).toBe("trs80-cmd");
     expect(result.regions.length).toBe(1);
   });
+
+  it("detects single-line plain text BASIC file", () => {
+    const singleLine = "10 PRINT \"HELLO\"";
+    const result = detectFormat(singleLine);
+    expect(result).toBe("trs80-bas");
+  });
+
+  it("detects programs using extended keywords CLEAR, POKE, ONERROR", () => {
+    const program = "1 CLEAR100:ONERROR GOTO 2:POKE16553,255";
+    const result = detectFormat(program);
+    expect(result).toBe("trs80-bas");
+  });
+
+  it("parses multi-line plain text BAS file correctly through parseProgram with textMode=true", () => {
+    const plainText = `10 PRINT "HELLO WORLD"
+20 FOR I=1 TO 10
+30 PRINT I
+40 NEXT I
+50 END`;
+    const result = parseProgram(plainText);
+
+    expect(result.format).toBe("trs80-bas");
+    expect(result.textMode).toBe(true);
+    expect(result.listing).toBe(plainText);
+    expect(result.regions.length).toBe(0);
+    expect(result.entryPoint).toBe(0);
+  });
 });

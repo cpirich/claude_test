@@ -372,4 +372,31 @@ describe("parseTRS80BAS - Plain Text Format", () => {
     expect(result.textMode).toBe(false);
     expect(result.regions).toHaveLength(1);
   });
+
+  it("should detect single-line plain text BASIC program", () => {
+    const plainText = "10 PRINT \"HELLO WORLD\"";
+    const data = new TextEncoder().encode(plainText);
+
+    const result = parseTRS80BAS(data);
+
+    expect(result.textMode).toBe(true);
+    expect(result.listing).toBe(plainText);
+    expect(result.regions).toHaveLength(0);
+    expect(result.entryPoint).toBe(0);
+  });
+
+  it("should recognize programs with extended keywords ONERROR, STOP, RESTORE, ON", () => {
+    const plainText = `1 CLEAR100:ONERROR GOTO 2:POKE16553,255
+2 CLS:PRINT"ERROR":STOP
+3 RESTORE:ON X GOTO 10,20,30`;
+    const data = new TextEncoder().encode(plainText);
+
+    const result = parseTRS80BAS(data);
+
+    expect(result.textMode).toBe(true);
+    expect(result.listing).toContain("ONERROR");
+    expect(result.listing).toContain("STOP");
+    expect(result.listing).toContain("RESTORE");
+    expect(result.listing).toContain("ON");
+  });
 });
