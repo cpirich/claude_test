@@ -48,31 +48,10 @@ export async function waitForTerminalText(
 }
 
 /**
- * TRS-80 shifted character map.
- * Maps characters that require SHIFT on the TRS-80 to their base key.
- * e.g. '=' requires SHIFT+'-' on TRS-80 keyboard.
- */
-const TRS80_SHIFTED: Record<string, string> = {
-  '=': '-', '+': ';', '*': ':', '!': '1', '"': '2', '#': '3',
-  '$': '4', '%': '5', '&': '6', "'": '7', '(': '8', ')': '9',
-  '<': ',', '>': '.', '?': '/',
-};
-
-/**
- * Dispatch a raw keyboard event on the focused element (terminal container).
- * Bypasses browser key remapping to send exact key values to the emulator.
- */
-async function dispatchKey(page: Page, type: 'keydown' | 'keyup', key: string): Promise<void> {
-  await page.evaluate(([t, k]) => {
-    const target = document.activeElement || document;
-    target.dispatchEvent(new KeyboardEvent(t, { key: k, bubbles: true }));
-  }, [type, key] as const);
-}
-
-/**
  * Type a string into the terminal one character at a time.
- * Handles TRS-80 shifted characters (=, *, +, etc.) by dispatching
- * raw keyboard events with SHIFT + base key.
+ * The emulator's SYNTHETIC_SHIFT map handles TRS-80 shifted characters
+ * (=, *, +, etc.) internally, so we just send the character directly
+ * via Playwright's keyboard API.
  */
 export async function typeInTerminal(page: Page, text: string, delayMs = process.env.CI ? 50 : 25): Promise<void> {
   // Ensure terminal is focused
@@ -82,15 +61,6 @@ export async function typeInTerminal(page: Page, text: string, delayMs = process
   for (const char of text) {
     if (char === ' ') {
       await page.keyboard.press('Space');
-    } else if (TRS80_SHIFTED[char]) {
-      // TRS-80 shifted character: dispatch SHIFT + base key via raw events
-      const baseKey = TRS80_SHIFTED[char];
-      await dispatchKey(page, 'keydown', 'Shift');
-      await page.waitForTimeout(20);
-      await dispatchKey(page, 'keydown', baseKey);
-      await page.waitForTimeout(30);
-      await dispatchKey(page, 'keyup', baseKey);
-      await dispatchKey(page, 'keyup', 'Shift');
     } else {
       await page.keyboard.press(char);
     }

@@ -12,29 +12,79 @@ import {
   getTerminal,
 } from './helpers';
 
+const FIXTURES_DIR = path.join(__dirname, 'fixtures', 'roms');
+
+/**
+ * Set up route interception to serve ROM files from local fixtures.
+ * Uses regex patterns for reliable matching across environments.
+ * Returns a tracker object that records which routes were served.
+ */
+async function setupRomRoutes(page: import('@playwright/test').Page) {
+  const served: Record<string, boolean> = { level1: false, level2: false };
+
+  // Use regex for more reliable matching than glob patterns
+  await page.route(/model1-level1\.rom/, async (route) => {
+    const romPath = path.join(FIXTURES_DIR, 'level1.rom');
+    const rom = fs.readFileSync(romPath);
+    served.level1 = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/octet-stream',
+      body: rom,
+    });
+  });
+
+  await page.route(/model1-level2\.rom/, async (route) => {
+    const romPath = path.join(FIXTURES_DIR, 'level2.rom');
+    const rom = fs.readFileSync(romPath);
+    served.level2 = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/octet-stream',
+      body: rom,
+    });
+  });
+
+  return served;
+}
+
+/**
+ * Load a ROM from the software library modal.
+ * Handles the full flow: open modal → select entry → click load → close modal.
+ */
+async function loadFromLibrary(
+  page: import('@playwright/test').Page,
+  entryName: RegExp,
+  options?: { expectMemorySize?: boolean }
+) {
+  // Open software library
+  await page.locator('button[title="Software Library"]').click();
+  await page.getByText('SOFTWARE LIBRARY', { exact: true }).waitFor({ timeout: 5000 });
+
+  // Click the catalog entry
+  const entryButton = page.locator('button', { hasText: entryName });
+  await entryButton.click();
+
+  // Wait for the detail panel to show the entry (verify selection worked)
+  await page.waitForTimeout(300);
+
+  // Click the download/load button
+  const loadButton = page.locator('button', { hasText: /DOWNLOAD & LOAD|IN ROM/ });
+  await loadButton.click();
+
+  if (options?.expectMemorySize) {
+    // Level II BASIC boots to "MEMORY SIZE?" prompt
+    await waitForTerminalText(page, 'MEMORY SIZE?', { timeout: 30_000 });
+    await page.keyboard.press('Enter');
+  }
+
+  // Wait for BASIC to boot — should show READY
+  await waitForTerminalText(page, 'READY', { timeout: 15_000 });
+}
+
 test.describe('TRS-80 Emulator', () => {
   test.beforeEach(async ({ page }) => {
-    // Intercept ROM downloads and serve local fixtures
-    const fixturesDir = path.join(__dirname, 'fixtures', 'roms');
-
-    await page.route('**/model1-level1.rom', async (route) => {
-      const rom = fs.readFileSync(path.join(fixturesDir, 'level1.rom'));
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/octet-stream',
-        body: rom,
-      });
-    });
-
-    await page.route('**/model1-level2.rom', async (route) => {
-      const rom = fs.readFileSync(path.join(fixturesDir, 'level2.rom'));
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/octet-stream',
-        body: rom,
-      });
-    });
-
+    await setupRomRoutes(page);
     await goToMachine(page, 'trs80');
   });
 
@@ -76,42 +126,12 @@ test.describe('TRS-80 Emulator', () => {
 
 test.describe('TRS-80 Level I BASIC', () => {
   test.beforeEach(async ({ page }) => {
-    // Intercept ROM downloads and serve local fixtures
-    const fixturesDir = path.join(__dirname, 'fixtures', 'roms');
-
-    await page.route('**/model1-level1.rom', async (route) => {
-      const rom = fs.readFileSync(path.join(fixturesDir, 'level1.rom'));
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/octet-stream',
-        body: rom,
-      });
-    });
-
-    await page.route('**/model1-level2.rom', async (route) => {
-      const rom = fs.readFileSync(path.join(fixturesDir, 'level2.rom'));
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/octet-stream',
-        body: rom,
-      });
-    });
-
+    const served = await setupRomRoutes(page);
     await goToMachine(page, 'trs80');
-    // Load Level I BASIC from the software library
-    await page.locator('button[title="Software Library"]').click();
-    await page.getByText('SOFTWARE LIBRARY', { exact: true }).waitFor({ timeout: 5000 });
+    await loadFromLibrary(page, /Level I BASIC/i);
 
-    // Find and click Level I BASIC in the catalog
-    await page.locator('button', { hasText: /Level I BASIC/i }).click();
-    await page.waitForTimeout(200);
-
-    // Click the action button in the modal (DOWNLOAD & LOAD or IN ROM)
-    // Target the button inside the modal, not the header LOAD button
-    await page.locator('button', { hasText: /DOWNLOAD & LOAD|IN ROM/ }).click();
-
-    // Wait for BASIC to boot — should show READY
-    await waitForTerminalText(page, 'READY', { timeout: 15_000 });
+    // Verify ROM was actually served (not using stub)
+    expect(served.level1).toBe(true);
   });
 
   test('should boot to READY prompt', async ({ page }) => {
@@ -189,45 +209,12 @@ test.describe('TRS-80 Level I BASIC', () => {
 
 test.describe('TRS-80 Level II BASIC', () => {
   test.beforeEach(async ({ page }) => {
-    // Intercept ROM downloads and serve local fixtures
-    const fixturesDir = path.join(__dirname, 'fixtures', 'roms');
-
-    await page.route('**/model1-level1.rom', async (route) => {
-      const rom = fs.readFileSync(path.join(fixturesDir, 'level1.rom'));
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/octet-stream',
-        body: rom,
-      });
-    });
-
-    await page.route('**/model1-level2.rom', async (route) => {
-      const rom = fs.readFileSync(path.join(fixturesDir, 'level2.rom'));
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/octet-stream',
-        body: rom,
-      });
-    });
-
+    const served = await setupRomRoutes(page);
     await goToMachine(page, 'trs80');
-    // Load Level II BASIC from the software library
-    await page.locator('button[title="Software Library"]').click();
-    await page.getByText('SOFTWARE LIBRARY', { exact: true }).waitFor({ timeout: 5000 });
+    await loadFromLibrary(page, /Level II BASIC/i, { expectMemorySize: true });
 
-    // Find and click Level II BASIC in the catalog (remote ROM, requires download)
-    await page.locator('button', { hasText: /Level II BASIC/i }).click();
-    await page.waitForTimeout(200);
-
-    // Click DOWNLOAD & LOAD
-    await page.locator('button', { hasText: /DOWNLOAD & LOAD/ }).click();
-
-    // Level II BASIC boots to "MEMORY SIZE?" prompt - press Enter to accept default
-    await waitForTerminalText(page, 'MEMORY SIZE?', { timeout: 30_000 });
-    await page.keyboard.press('Enter');
-
-    // Wait for "RADIO SHACK" banner or READY prompt
-    await waitForTerminalText(page, 'READY', { timeout: 10_000 });
+    // Verify ROM was actually served
+    expect(served.level2).toBe(true);
   });
 
   test('should boot to READY prompt', async ({ page }) => {
