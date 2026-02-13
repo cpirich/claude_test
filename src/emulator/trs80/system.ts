@@ -185,18 +185,28 @@ export class TRS80System {
 
   /**
    * Load a software entry into memory.
-   * - Loads all regions into RAM
-   * - Sets PC to entry point if provided
-   * Note: TRS-80 software loads into RAM ($4000+) and doesn't replace ROM.
+   * - Loads all regions (can be ROM $0000-$2FFF or RAM $4000+)
+   * - If any region loads into ROM space, performs a reset
+   * - Sets PC to entry point if provided (for RAM-based software)
    */
   loadSoftware(entry: SoftwareEntry): void {
     if (entry.regions.length === 0) return;
 
+    // Check if this entry loads into ROM space ($0000-$2FFF)
+    const loadsIntoROM = entry.regions.some(
+      (r) => r.startAddress < 0x3000
+    );
+
     this.memory.loadSoftwareEntry(entry);
 
-    // Set PC to entry point if specified
-    if (entry.entryPoint !== undefined && entry.entryPoint !== 0) {
-      this.cpu.pc = entry.entryPoint;
+    // If loading a ROM, reset the system to boot the new ROM
+    if (loadsIntoROM) {
+      this.reset();
+    } else {
+      // For RAM-based software, set PC to entry point if specified
+      if (entry.entryPoint !== undefined && entry.entryPoint !== 0) {
+        this.cpu.pc = entry.entryPoint;
+      }
     }
   }
 }
