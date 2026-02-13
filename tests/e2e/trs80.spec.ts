@@ -220,110 +220,29 @@ test.describe('TRS-80 Level I BASIC', () => {
   });
 });
 
-test.describe('TRS-80 ROM Loading Diagnostics', () => {
-  test('should verify ROM data delivery via route interception', async ({ page }) => {
-    // Track console messages and page errors
-    const consoleMsgs: string[] = [];
-    const pageErrors: string[] = [];
-    page.on('console', (msg) => consoleMsgs.push(`[${msg.type()}] ${msg.text()}`));
-    page.on('pageerror', (err) => pageErrors.push(err.message));
-
+test.describe('TRS-80 ROM Loading', () => {
+  test('should intercept and load ROM correctly', async ({ page }) => {
     const served = await setupRomRoutes(page);
     await goToMachine(page, 'trs80');
 
-    // Step 1: Verify the route interception actually delivers correct data
-    // by fetching directly from the browser context
-    const fetchResult = await page.evaluate(async () => {
+    // Verify route interception delivers correct ROM data
+    const rom = await page.evaluate(async () => {
       const resp = await fetch(
         'https://raw.githubusercontent.com/lkesteloot/trs80/master/packages/trs80-emulator/roms/model1-level1.rom'
       );
       const buf = await resp.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      return {
-        status: resp.status,
-        size: buf.byteLength,
-        firstFour: Array.from(bytes.slice(0, 4)),
-      };
+      return { size: buf.byteLength, firstByte: new Uint8Array(buf)[0] };
     });
+    expect(rom.size).toBe(4096);
+    expect(rom.firstByte).toBe(0xF3); // Z80 DI instruction
 
-    console.log('=== DIAGNOSTIC: Direct fetch result ===');
-    console.log(`  Status: ${fetchResult.status}`);
-    console.log(`  Size: ${fetchResult.size}`);
-    console.log(`  First 4 bytes: [${fetchResult.firstFour.map(b => '0x' + b.toString(16).padStart(2, '0')).join(', ')}]`);
-    console.log(`  Route served: ${served.level1}`);
-
-    expect(fetchResult.status).toBe(200);
-    expect(fetchResult.size).toBe(4096);
-    expect(fetchResult.firstFour[0]).toBe(0xF3); // Z80 DI instruction
-
-    // Step 2: Check for error overlays before loading
-    const errorDialogsBefore = await page.locator('dialog').count();
-    console.log(`\n=== DIAGNOSTIC: Error dialogs before load: ${errorDialogsBefore} ===`);
-
-    // Step 3: Load ROM via the UI modal
-    // Reset served flag since the direct fetch already triggered it
-    served.level1 = false;
-    await page.locator('button[title="Software Library"]').click();
-    const modalTitle = page.getByText('SOFTWARE LIBRARY', { exact: true });
-    await modalTitle.waitFor({ timeout: 5000 });
-
-    const entryButton = page.locator('button', { hasText: /Level I BASIC/i });
-    await entryButton.click();
-    await page.waitForTimeout(300);
-
-    const loadButton = page.locator('button', { hasText: /DOWNLOAD & LOAD|IN ROM/ });
-    await loadButton.click();
-
-    // Wait for modal to close
-    await modalTitle.waitFor({ state: 'hidden', timeout: 30_000 });
-    console.log(`\n=== DIAGNOSTIC: Modal closed, served via modal: ${served.level1} ===`);
-
-    // Step 4: Wait and check emulator state
-    await page.waitForTimeout(2000);
-
-    // Check for error overlays after loading
-    const errorDialogsAfter = await page.locator('dialog').count();
-    console.log(`=== DIAGNOSTIC: Error dialogs after load: ${errorDialogsAfter} ===`);
-
-    if (errorDialogsAfter > 0) {
-      const errorText = await page.locator('dialog').first().textContent();
-      console.log(`=== DIAGNOSTIC: Error dialog content: ${errorText?.slice(0, 200)} ===`);
-    }
-
-    // Step 5: Read terminal text
-    const terminalText = await getTerminalText(page);
-    console.log(`\n=== DIAGNOSTIC: Terminal text after load ===`);
-    console.log(terminalText.replace(/·/g, ' ').trim());
-
-    // Step 6: Log console messages (filter noise)
-    const relevantMsgs = consoleMsgs.filter(m =>
-      !m.includes('DevTools') && !m.includes('webpack') && !m.includes('HMR')
-    );
-    if (relevantMsgs.length > 0) {
-      console.log(`\n=== DIAGNOSTIC: Console messages (${relevantMsgs.length}) ===`);
-      relevantMsgs.forEach(m => console.log(`  ${m}`));
-    }
-
-    if (pageErrors.length > 0) {
-      console.log(`\n=== DIAGNOSTIC: Page errors (${pageErrors.length}) ===`);
-      pageErrors.forEach(e => console.log(`  ${e}`));
-    }
-
-    // The actual assertion: after loading Level I BASIC, typing RUN after a
-    // simple program should produce output (not just echo like stub ROM)
+    // Load Level I BASIC and verify it actually runs (not just stub ROM echo)
+    await loadFromLibrary(page, /Level I BASIC/i);
     expect(served.level1).toBe(true);
 
-    // If terminal still shows "READY" from stub ROM, the ROM didn't load
-    // Level I BASIC also shows "READY", so we need to type a command to tell the difference
-    await typeCommand(page, 'PRINT 42');
-    await page.waitForTimeout(1000);
-    const afterPrint = await getTerminalText(page);
-    console.log(`\n=== DIAGNOSTIC: Terminal after PRINT 42 ===`);
-    console.log(afterPrint.replace(/·/g, ' ').trim());
-
-    // If Level I BASIC is loaded, "42" should appear in the output
-    // If stub ROM is loaded, only "PRINT 42" will be echoed (no "42" on its own line)
-    expect(afterPrint).toContain('42');
+    await typeCommand(page, 'PRINT 1+1');
+    // " 2" distinguishes computed output from the typed command text
+    await waitForTerminalText(page, ' 2');
   });
 });
 
