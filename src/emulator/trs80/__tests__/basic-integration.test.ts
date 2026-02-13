@@ -15,7 +15,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TRS80System } from '../system';
-import { VIDEO_COLS } from '../video';
+// VIDEO_COLS not currently needed — subroutines use direct memory offsets
 
 /** Helper: create a ROM with common subroutines pre-installed. */
 function createBasicROM(): { rom: Uint8Array; emit: (offset: number, ...bytes: number[]) => number } {
@@ -274,7 +274,7 @@ describe('BASIC program integration tests', () => {
       p = emit(p, 0x21, 0x20, 0x02);       // LD HL,$0220
       p = emitPrintString(rom, p);
 
-      p = emit(p, 0x76);                   // HALT
+      emit(p, 0x76);                       // HALT
 
       system.loadROM(rom);
       system.reset();
@@ -299,7 +299,7 @@ describe('BASIC program integration tests', () => {
       p = emit(p, 0x3e, 0x02);             // LD A,2
       p = emit(p, 0xc6, 0x02);             // ADD A,2
       p = emit(p, 0xcd, 0x20, 0x01);       // CALL PRINT_NUM
-      p = emit(p, 0x76);                   // HALT
+      emit(p, 0x76);                       // HALT
 
       system.loadROM(rom);
       system.reset();
@@ -344,7 +344,7 @@ describe('BASIC program integration tests', () => {
       p = emit(p, 0x22, 0x00, 0x40);       // LD ($4000),HL
       p = emit(p, 0x3e, 0x64);             // LD A,100
       p = emit(p, 0xcd, 0x20, 0x01);       // CALL PRINT_NUM
-      p = emit(p, 0x76);                   // HALT
+      emit(p, 0x76);                       // HALT
 
       system.loadROM(rom);
       system.reset();
@@ -379,7 +379,6 @@ describe('BASIC program integration tests', () => {
       p = emit(p, 0x0c);                   // INC C (NEXT I)
       p = emit(p, 0x79);                   // LD A,C
       p = emit(p, 0xb8);                   // CP B
-      const jr_le = p;
       p = emit(p, 0x38, (for_loop - (p + 2)) & 0xff); // JR C,for_loop (C < B)
       // Also run when C == B (need <= comparison)
       p = emit(p, 0x28, (for_loop - (p + 2)) & 0xff); // JR Z,for_loop (C == B)
@@ -575,7 +574,7 @@ describe('BASIC program integration tests', () => {
       p = emit(p, 0x22, 0x00, 0x40);       // LD ($4000),HL
       p = emit(p, 0xcd, 0x50, 0x00);       // CALL $0050 (GOSUB 100)
       p = emit(p, 0xcd, 0x50, 0x00);       // CALL $0050 (GOSUB 100)
-      p = emit(p, 0x76);                   // HALT
+      emit(p, 0x76);                       // HALT
 
       system.loadROM(rom);
       system.reset();
@@ -606,7 +605,7 @@ describe('BASIC program integration tests', () => {
       p = emit(p, 0x3a, 0x11, 0x40);       // LD A,($4011)
       p = emit(p, 0x80);                   // ADD A,B
       p = emit(p, 0xcd, 0x20, 0x01);       // CALL PRINT_NUM
-      p = emit(p, 0x76);                   // HALT
+      emit(p, 0x76);                       // HALT
 
       system.loadROM(rom);
       system.reset();

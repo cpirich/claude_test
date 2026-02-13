@@ -40,8 +40,8 @@ export class FlatMemory implements Memory {
 
 /** No-op I/O bus — 8080EX1 doesn't use port I/O. */
 class NullIO implements IOBus {
-  in(_port: number): number { return 0xFF; }
-  out(_port: number, _value: number): void {}
+  in(): number { return 0xFF; }
+  out(): void {}
 }
 
 /** Result of a single 8080EX1 test group. */

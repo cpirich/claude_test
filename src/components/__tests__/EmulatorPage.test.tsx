@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
 // Mock next/dynamic to render TerminalDisplay directly
 vi.mock("next/dynamic", () => ({
   __esModule: true,
-  default: (importFn: () => Promise<{ TerminalDisplay: React.ComponentType }>) => {
+  default: () => {
     // Return a component that renders immediately
     const Component = (props: Record<string, unknown>) => {
       return <div data-testid={`terminal-${props.machine}`}>Terminal: {String(props.machine)}</div>;
@@ -48,9 +48,8 @@ vi.mock("@/components/MachineInfo", () => ({
 
 // Mock radix tabs to use simple HTML
 vi.mock("@/components/ui/tabs", () => ({
-  Tabs: ({ value, onValueChange, children, ...props }: {
+  Tabs: ({ value, children, ...props }: {
     value: string;
-    onValueChange: (v: string) => void;
     children: React.ReactNode;
   } & Record<string, unknown>) => (
     <div data-testid="tabs" data-value={value} {...props}>

@@ -532,7 +532,7 @@ describe('Apple-1 Diagnostic PROM Tests', () => {
         { char: 0x42, atCycle: 4000 }, // 'B'
       ]);
 
-      const result = harness.run(cpu, 500_000);
+      harness.run(cpu, 500_000);
       const display = harness.getDisplay();
 
       // Should have at least the first character echoed
@@ -570,7 +570,7 @@ describe('Apple-1 Diagnostic PROM Tests', () => {
         { char: 0x30, atCycle: 2000 },  // '0'
       ]);
 
-      const result = harness.run(cpu, 500_000);
+      harness.run(cpu, 500_000);
       const display = harness.getDisplay();
 
       // First output should be 'F', second should be '0', third should be '='

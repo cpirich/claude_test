@@ -52,10 +52,11 @@ The app is dark-mode only (terminal emulator). The `dark` class is set on `<html
 
 Before committing any code changes, you MUST verify:
 
-1. **Type checking passes**: `npx tsc --noEmit`
-2. **All tests pass**: `npx vitest run`
+1. **Lint passes**: `npm run lint`
+2. **Type checking passes**: `npx tsc --noEmit`
+3. **All tests pass**: `npx vitest run`
 
-Both commands must succeed (exit code 0) before creating a commit. This ensures:
+All commands must succeed (exit code 0) before creating a commit. This ensures:
 - Type safety is maintained across all TypeScript files
 - No regressions in CPU emulation or UI components
 - Integration tests validate end-to-end functionality

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AltairFrontPanel, STATUS_INTE, STATUS_MEMR, STATUS_M1, STATUS_HLTA, STATUS_WO } from '../front-panel';
+import { AltairFrontPanel, STATUS_MEMR, STATUS_M1, STATUS_HLTA, STATUS_WO } from '../front-panel';
 import { AltairMemory } from '../memory';
 import { I8080 } from '@/cpu/i8080';
 import { Altair2SIO } from '../serial';

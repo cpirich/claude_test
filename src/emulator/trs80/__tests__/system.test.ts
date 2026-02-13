@@ -1,33 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TRS80System } from '../system';
 import { TRS80_STUB_ROM } from '../roms/level2-basic-stub';
-import { VIDEO_BASE, VIDEO_COLS } from '../video';
-
-/** Run the CPU until the PC reaches a target or cycle limit. */
-function runUntilPC(system: TRS80System, target: number, maxCycles: number): boolean {
-  let total = 0;
-  while (total < maxCycles) {
-    if (system.getPC() === target) return true;
-    total += system.step();
-  }
-  return false;
-}
-
-/** Run until the CPU enters a tight loop (same PC twice). */
-function runUntilLoop(system: TRS80System, maxCycles: number): {
-  looped: boolean;
-  cycles: number;
-} {
-  let total = 0;
-  let prevPC = -1;
-  while (total < maxCycles) {
-    const pc = system.getPC();
-    if (pc === prevPC) return { looped: true, cycles: total };
-    prevPC = pc;
-    total += system.step();
-  }
-  return { looped: false, cycles: total };
-}
+import { VIDEO_BASE } from '../video';
 
 describe('TRS80System', () => {
   let system: TRS80System;
@@ -131,7 +105,6 @@ describe('TRS80System', () => {
       system.keyDown('A');
 
       // Run some cycles — the ROM should exit the polling loop
-      const pcBefore = system.getPC();
       system.run(1000);
       system.keyUp('A');
 

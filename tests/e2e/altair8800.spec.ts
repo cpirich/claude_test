@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
   goToMachine,
-  getTerminalText,
   waitForTerminalText,
   typeInTerminal,
   clickReset,

@@ -711,7 +711,6 @@ export function SoftwareLibraryModal({
   onClose,
   onLoad,
   catalog,
-  machine: _machine,
 }: SoftwareLibraryModalProps) {
   const [activeTab, setActiveTab] = useState<TopTab>("browse");
 
