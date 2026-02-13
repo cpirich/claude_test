@@ -22,9 +22,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    // On CI, serve the pre-built static export (npm run build runs in an
-    // earlier CI step) to avoid Fast Refresh / HMR issues that can reset
-    // emulator state mid-test. Locally, use the dev server for HMR.
+    // CI: serve pre-built static export for deterministic, fast startup.
+    // Local: use dev server for HMR.
     command: process.env.CI
       ? 'npx serve out -l 3000'
       : 'npm run dev',
