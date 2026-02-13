@@ -119,14 +119,17 @@ export async function closeSoftwareLibrary(page: Page): Promise<void> {
 /**
  * Navigate to a machine page and wait for the terminal to be ready.
  *
- * On CI the Next.js dev server may still be compiling when the page first
- * loads.  When compilation finishes, Fast Refresh rebuilds the React
- * component tree, re-running the useEffect that creates the emulator — which
- * resets it to the stub ROM and destroys any previously loaded ROM.
+ * Handles two CI-specific issues:
  *
- * To prevent this, we wait for Fast Refresh to finish (or a generous timeout)
- * before returning, so all ROM-loading interactions happen after the dev
- * server is stable.
+ * 1. **Dev server startup race**: Playwright detects the dev server is running
+ *    (it responds to a health check), but Next.js hasn't finished compiling
+ *    all pages. The first page.goto() may fail or render an error. We retry
+ *    the navigation if the terminal doesn't appear within 10s.
+ *
+ * 2. **Fast Refresh resets emulator**: After the page loads, late compilation
+ *    can trigger Fast Refresh, which rebuilds the React tree and recreates
+ *    the emulator with the stub ROM — destroying any previously loaded ROM.
+ *    We wait for Fast Refresh to settle before returning.
  */
 export async function goToMachine(
   page: Page,
@@ -141,9 +144,24 @@ export async function goToMachine(
   };
   page.on('console', onConsole);
 
-  await page.goto(`/${machine}`);
-  // Wait for the terminal <pre> element to appear
-  await getTerminal(page).waitFor({ timeout: 30_000 });
+  // Navigate with retries — the dev server may still be compiling on first attempt
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await page.goto(`/${machine}`);
+    try {
+      await getTerminal(page).waitFor({ timeout: 10_000 });
+      break; // Terminal appeared — page is ready
+    } catch {
+      if (attempt === maxAttempts) {
+        throw new Error(
+          `Terminal did not appear after ${maxAttempts} navigation attempts ` +
+          `(dev server may not be ready)`
+        );
+      }
+      // Wait before retrying to give the dev server more time to compile
+      await page.waitForTimeout(2000);
+    }
+  }
 
   // Wait for dev server compilation to settle.
   // On CI the first Fast Refresh typically fires 3-6s after page load.
