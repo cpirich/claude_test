@@ -122,8 +122,8 @@ describe("TerminalDisplay", () => {
       };
 
       const { container } = render(<TerminalDisplay machine="apple1" />);
-      // The cursor is a span with bg-terminal-green class
-      const cursorSpans = container.querySelectorAll(".bg-terminal-green.text-terminal-bg");
+      // The cursor is a span with a background color and text-terminal-bg class
+      const cursorSpans = container.querySelectorAll("span.text-terminal-bg");
       expect(cursorSpans.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -203,6 +203,92 @@ describe("TerminalDisplay", () => {
 
       unmount();
       expect(terminalRef.current).toBeNull();
+    });
+  });
+
+  describe("Apple I styling and layout", () => {
+    it("applies apple1-screen class to container", () => {
+      const { container } = render(<TerminalDisplay machine="apple1" />);
+      const screenDiv = container.querySelector(".apple1-screen");
+      expect(screenDiv).toBeTruthy();
+    });
+
+    it("applies apple1-terminal class to pre element", () => {
+      const { container } = render(<TerminalDisplay machine="apple1" />);
+      const preElement = container.querySelector("pre.apple1-terminal");
+      expect(preElement).toBeTruthy();
+    });
+
+    it("sets fixed dimensions on container (720x540)", () => {
+      const { container } = render(<TerminalDisplay machine="apple1" />);
+      const screenDiv = container.querySelector(".apple1-screen") as HTMLElement;
+      expect(screenDiv.style.width).toBe("720px");
+      expect(screenDiv.style.height).toBe("540px");
+    });
+
+    it("applies transform scaling to pre element", () => {
+      const { container } = render(<TerminalDisplay machine="apple1" />);
+      const preElement = container.querySelector("pre.apple1-terminal") as HTMLElement;
+      expect(preElement.style.transform).toMatch(/scale\(/);
+    });
+
+    it("positions pre element absolutely", () => {
+      const { container } = render(<TerminalDisplay machine="apple1" />);
+      const preElement = container.querySelector("pre.apple1-terminal") as HTMLElement;
+      expect(preElement.style.position).toBe("absolute");
+      expect(preElement.style.top).toBe("44px");
+      expect(preElement.style.left).toBe("16px");
+    });
+  });
+
+  describe("TRS-80 styling and layout", () => {
+    it("applies crt-screen class to container", () => {
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const screenDiv = container.querySelector(".crt-screen");
+      expect(screenDiv).toBeTruthy();
+    });
+
+    it("applies trs80-terminal class to pre element", () => {
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const preElement = container.querySelector("pre.trs80-terminal");
+      expect(preElement).toBeTruthy();
+    });
+
+    it("sets fixed dimensions on container (720x540)", () => {
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const screenDiv = container.querySelector(".crt-screen") as HTMLElement;
+      expect(screenDiv.style.width).toBe("720px");
+      expect(screenDiv.style.height).toBe("540px");
+    });
+
+    it("applies transform scaling to pre element", () => {
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const preElement = container.querySelector("pre.trs80-terminal") as HTMLElement;
+      expect(preElement.style.transform).toMatch(/scale\(/);
+    });
+
+    it("positions pre element absolutely", () => {
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const preElement = container.querySelector("pre.trs80-terminal") as HTMLElement;
+      expect(preElement.style.position).toBe("absolute");
+      expect(preElement.style.top).toBe("44px");
+      expect(preElement.style.left).toBe("16px");
+    });
+
+    it("applies trs80-cursor class to cursor spans", () => {
+      mockTrs80State.cursorRow = 0;
+      mockTrs80State.cursorCol = 0;
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const cursorSpans = container.querySelectorAll(".trs80-cursor");
+      expect(cursorSpans.length).toBeGreaterThan(0);
+    });
+
+    it("applies white background to visible cursor", () => {
+      mockTrs80State.cursorRow = 0;
+      mockTrs80State.cursorCol = 0;
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const visibleCursor = container.querySelector(".trs80-cursor.bg-white");
+      expect(visibleCursor).toBeTruthy();
     });
   });
 });

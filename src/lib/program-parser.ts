@@ -6,6 +6,8 @@
  */
 
 import type { MemoryRegion, ParsedProgram, ProgramFileFormat } from "@/emulator/apple1/software-library";
+import { parseTRS80BAS } from "./trs80-bas-parser";
+import { parseTRS80CMD } from "./trs80-cmd-parser";
 
 /** Format a 16-bit address as a hex string (e.g., "$0300"). */
 function formatAddr(addr: number): string {
@@ -32,15 +34,50 @@ function computeSize(regions: MemoryRegion[]): number {
 /**
  * Auto-detect file format from content.
  *
+ * - TRS-80 CMD: starts with 0x01 (data block record type)
+ * - TRS-80 BAS: starts with D3 D3 D3 (tokenized) or looks like plain text BASIC
  * - Intel HEX: first non-empty line starts with ':'
  * - Woz Monitor hex dump: first non-empty line matches /^[0-9A-Fa-f]{3,4}:/
  * - Otherwise: raw binary
  */
 export function detectFormat(data: Uint8Array | string): ProgramFileFormat {
+  // Check for binary data first
+  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+
+  // Check for TRS-80 CMD format (starts with 0x01 or 0x02 record type)
+  if (bytes.length >= 2 && (bytes[0] === 0x01 || bytes[0] === 0x02)) {
+    return "trs80-cmd";
+  }
+
+  // Check for TRS-80 tokenized BAS format (D3 D3 D3 header)
+  if (bytes.length >= 4 && bytes[0] === 0xd3 && bytes[1] === 0xd3 && bytes[2] === 0xd3) {
+    return "trs80-bas";
+  }
+
   const text = typeof data === "string" ? data : tryDecodeText(data);
   if (text === null) return "binary";
 
   const lines = text.split(/\r?\n/);
+
+  // Check for plain text BASIC (line numbers at start)
+  let basicLineCount = 0;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) continue;
+
+    // Check if line starts with a number followed by BASIC keywords
+    // Match the behavior of isPlainTextBASIC in trs80-bas-parser.ts
+    if (/^\d+\s+(PRINT|REM|GOTO|FOR|NEXT|IF|THEN|END|CLS|INPUT|LET|DIM|DATA|READ|GOSUB|RETURN|POKE|PEEK|CLEAR|NEW|RUN|LIST|STOP|RESTORE|ON|LOAD|SAVE|CONT|DELETE|AUTO|TAB|INKEY|RANDOM|SET|RESET|CMD|ONERROR|LPRINT|DEF|OUT|OPEN|CLOSE|FIELD|GET|PUT|LINE|EDIT|ERROR|RESUME|MERGE|NAME|KILL|LSET|RSET|SYSTEM)/i.test(trimmed)) {
+      basicLineCount++;
+      if (basicLineCount >= 1) return "trs80-bas"; // Found at least 1 valid BASIC line
+    } else if (/^\d+$/.test(trimmed)) {
+      // Allow lines with just numbers (empty lines in BASIC)
+      basicLineCount++;
+      if (basicLineCount >= 1) return "trs80-bas";
+    }
+  }
+
+  // Reset to check other text formats
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed.length === 0) continue;
@@ -179,15 +216,102 @@ export function parseWozHexDump(text: string): ParsedProgram {
 }
 
 /**
+ * Scan for 6502 absolute-addressed instructions that reference addresses
+ * below the proposed load address. This indicates the binary was assembled
+ * for a lower base address (e.g., $0280 instead of $0300).
+ */
+function hasReferencesBelow(data: Uint8Array, loadAddress: number): boolean {
+  // Opcodes that use 3-byte absolute addressing (opcode + lo + hi)
+  const absOpcodes = new Set([
+    0xad, 0x8d, 0x6d, 0xed, 0x2d, 0x0d, 0x4d, 0xcd, // LDA/STA/ADC/SBC/AND/ORA/EOR/CMP abs
+    0xbd, 0xb9, 0x79, 0xf9, 0xd9, 0x39, 0x19, 0x59, // abs,X / abs,Y
+    0x99, 0x9d, 0xee, 0xce, 0x2c, 0x4c, 0x20,        // STA idx/INC/DEC/BIT/JMP/JSR abs
+  ]);
+
+  const scanLen = Math.min(data.length, 512);
+  let count = 0;
+
+  for (let i = 3; i < scanLen - 2; i++) {
+    if (absOpcodes.has(data[i])) {
+      const addr = data[i + 1] | (data[i + 2] << 8);
+      if (addr >= 0x0200 && addr < loadAddress && addr < 0xd000) {
+        count++;
+        if (count >= 2) return true;
+      }
+      i += 2; // skip the address bytes
+    }
+  }
+  return count > 0;
+}
+
+/** Find the best base address from common 6502 program bases. */
+function findBestBase(data: Uint8Array, jmpTarget: number, fallback: number): number {
+  const candidates = [0x0280, 0x0200, 0x0300, 0x0000, 0x0400, 0x0800, 0x1000];
+  for (const base of candidates) {
+    if (base !== fallback && jmpTarget >= base && jmpTarget < base + data.length) {
+      return base;
+    }
+  }
+
+  // Fallback: page-align the minimum viable base
+  const minBase = Math.max(0, jmpTarget - data.length + 1);
+  return minBase & 0xff00;
+}
+
+/**
+ * Infer the correct load address for a raw binary.
+ *
+ * Many Apple I binaries start with `JMP $XXYY` (opcode $4C). We check two
+ * conditions that indicate the requested load address is wrong:
+ *
+ * 1. The JMP target falls outside [loadAddress, loadAddress + length) — the
+ *    jump would land in uninitialised RAM.
+ * 2. The code contains absolute address references below the load address —
+ *    the binary was assembled for a lower base (e.g., $0280 vs $0300).
+ *
+ * When either is detected we try common Apple I base addresses until one
+ * makes the JMP target land inside the file.
+ */
+function inferLoadAddress(data: Uint8Array, requestedAddress: number): number {
+  if (data.length < 3) return requestedAddress;
+
+  // Only auto-correct when the first instruction is JMP absolute ($4C)
+  if (data[0] !== 0x4c) return requestedAddress;
+
+  const jmpTarget = data[1] | (data[2] << 8);
+
+  // If JMP target is in ROM / I/O space it's not a relocatable reference
+  if (jmpTarget >= 0xd000) return requestedAddress;
+
+  const inRange = jmpTarget >= requestedAddress && jmpTarget < requestedAddress + data.length;
+
+  // Case 1: JMP target outside loaded range — definitely wrong
+  if (!inRange) {
+    return findBestBase(data, jmpTarget, requestedAddress);
+  }
+
+  // Case 2: JMP target in range, but code references addresses below the
+  // load address — the binary was assembled for a lower base.
+  if (hasReferencesBelow(data, requestedAddress)) {
+    return findBestBase(data, jmpTarget, requestedAddress);
+  }
+
+  return requestedAddress;
+}
+
+/**
  * Parse raw binary data.
  *
  * Wraps the bytes into a single MemoryRegion at the given load address.
+ * When the binary starts with a JMP whose target is outside the requested
+ * range, attempts to infer a better load address automatically.
  */
 export function parseBinary(data: Uint8Array, loadAddress: number): ParsedProgram {
-  const regions: MemoryRegion[] = [{ startAddress: loadAddress, data }];
+  const effectiveAddress = inferLoadAddress(data, loadAddress);
+  const regions: MemoryRegion[] = [{ startAddress: effectiveAddress, data }];
   return {
     regions,
-    entryPoint: loadAddress,
+    entryPoint: effectiveAddress,
     format: "binary",
     sizeBytes: data.length,
     addressRange: computeAddressRange(regions),
@@ -203,6 +327,30 @@ export function parseProgram(
 ): ParsedProgram {
   const format = options?.format ?? detectFormat(data);
   switch (format) {
+    case "trs80-cmd": {
+      const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+      const result = parseTRS80CMD(bytes);
+      return {
+        regions: result.regions,
+        entryPoint: result.entryPoint,
+        format: "trs80-cmd",
+        sizeBytes: computeSize(result.regions),
+        addressRange: computeAddressRange(result.regions),
+      };
+    }
+    case "trs80-bas": {
+      const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+      const result = parseTRS80BAS(bytes);
+      return {
+        regions: result.regions,
+        entryPoint: result.entryPoint,
+        format: "trs80-bas",
+        sizeBytes: computeSize(result.regions),
+        addressRange: result.regions.length > 0 ? computeAddressRange(result.regions) : "$0000",
+        textMode: result.textMode,
+        listing: result.listing,
+      };
+    }
     case "intel-hex": {
       const text = typeof data === "string" ? data : new TextDecoder("utf-8").decode(data);
       return parseIntelHex(text);

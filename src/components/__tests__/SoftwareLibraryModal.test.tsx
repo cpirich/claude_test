@@ -283,6 +283,18 @@ describe("SoftwareLibraryModal", () => {
       expect(screen.getByText("HEX")).toBeInTheDocument();
     });
 
+    it("shows BAS format option in format selectors", () => {
+      render(<SoftwareLibraryModal {...defaultProps} />);
+      fireEvent.click(screen.getByText("URL"));
+      expect(screen.getByText("BAS")).toBeInTheDocument();
+    });
+
+    it("shows CMD format option in format selectors", () => {
+      render(<SoftwareLibraryModal {...defaultProps} />);
+      fireEvent.click(screen.getByText("URL"));
+      expect(screen.getByText("CMD")).toBeInTheDocument();
+    });
+
     it("disables FETCH & LOAD when URL is empty", () => {
       render(<SoftwareLibraryModal {...defaultProps} />);
       fireEvent.click(screen.getByText("URL"));
@@ -315,6 +327,39 @@ describe("SoftwareLibraryModal", () => {
       fireEvent.click(screen.getByText("FILE"));
       expect(screen.getByText("AUTO")).toBeInTheDocument();
       expect(screen.getByText("BINARY")).toBeInTheDocument();
+    });
+
+    it("shows TRS-80 file extensions in drop zone hint", () => {
+      render(<SoftwareLibraryModal {...defaultProps} />);
+      fireEvent.click(screen.getByText("FILE"));
+      expect(screen.getByText(/\.cmd/)).toBeInTheDocument();
+      expect(screen.getByText(/\.bas/)).toBeInTheDocument();
+      expect(screen.getByText(/\.asm/)).toBeInTheDocument();
+      expect(screen.getByText(/\.cas/)).toBeInTheDocument();
+    });
+
+    it("accepts TRS-80 file extensions in file input", () => {
+      render(<SoftwareLibraryModal {...defaultProps} />);
+      fireEvent.click(screen.getByText("FILE"));
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      expect(fileInput).toBeTruthy();
+      expect(fileInput.accept).toContain(".cmd");
+      expect(fileInput.accept).toContain(".bas");
+      expect(fileInput.accept).toContain(".asm");
+      expect(fileInput.accept).toContain(".cas");
+    });
+
+    it("accepts standard file extensions in file input", () => {
+      render(<SoftwareLibraryModal {...defaultProps} />);
+      fireEvent.click(screen.getByText("FILE"));
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      expect(fileInput).toBeTruthy();
+      expect(fileInput.accept).toContain(".bin");
+      expect(fileInput.accept).toContain(".hex");
+      expect(fileInput.accept).toContain(".ihx");
+      expect(fileInput.accept).toContain(".txt");
+      expect(fileInput.accept).toContain(".rom");
+      expect(fileInput.accept).toContain(".zip");
     });
   });
 

@@ -196,29 +196,6 @@ export function useTrs80() {
     setState((prev) => ({ ...prev, currentSoftware: null }));
   }, []);
 
-  /** Load a software entry — ROM entries replace ROM and reset, RAM entries poke into RAM. */
-  const loadSoftware = useCallback((entry: SoftwareEntry) => {
-    const emu = emulatorRef.current;
-    if (!emu) return;
-    if (entry.regions.length === 0) return;
-
-    const isRom = entry.regions.some((r) => r.startAddress < 0x3000);
-    if (isRom) {
-      // ROM replacement: load into ROM space and reset
-      const romRegion = entry.regions[0];
-      emu.loadROM(romRegion.data);
-      emu.reset();
-    } else {
-      // RAM program: poke bytes into RAM at specified addresses
-      for (const region of entry.regions) {
-        for (let i = 0; i < region.data.length; i++) {
-          emu.memory.write(region.startAddress + i, region.data[i]);
-        }
-      }
-    }
-    setState((prev) => ({ ...prev, currentSoftware: entry.id }));
-  }, []);
-
   /** Type a command string into the terminal and submit with ENTER. */
   const typeCommand = useCallback((text: string) => {
     const emu = emulatorRef.current;
@@ -281,6 +258,28 @@ export function useTrs80() {
       i++;
     }, 50);
   }, []);
+
+  /** Load a software entry into memory. */
+  const loadSoftware = useCallback((entry: SoftwareEntry) => {
+    const emu = emulatorRef.current;
+    if (!emu) return;
+
+    // Handle textMode BAS files by typing the listing instead of loading binary
+    if (entry.textMode && entry.listing) {
+      // Split listing into lines and type each line separately
+      const lines = entry.listing.split(/\r?\n/).filter(line => line.trim().length > 0);
+      lines.forEach((line, index) => {
+        // Delay each line to allow the emulator to process them sequentially
+        setTimeout(() => {
+          typeCommand(line);
+        }, index * 100); // 100ms delay between lines
+      });
+      setState((prev) => ({ ...prev, currentSoftware: entry.id }));
+    } else {
+      emu.loadSoftware(entry);
+      setState((prev) => ({ ...prev, currentSoftware: entry.id }));
+    }
+  }, [typeCommand]);
 
   return { state, onKeyDown, onKeyUp, reset, loadSoftware, typeCommand, emulator: emulatorRef };
 }

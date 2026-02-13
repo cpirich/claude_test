@@ -12,6 +12,7 @@
  */
 
 import type { Memory } from '@/cpu/z80/types';
+import type { SoftwareEntry } from '@/emulator/apple1/software-library';
 import { TRS80Keyboard } from './keyboard';
 import { TRS80Video } from './video';
 
@@ -112,5 +113,23 @@ export class TRS80Memory implements Memory {
       return this.rom[address];
     }
     return 0;
+  }
+
+  /** Load a block of bytes into RAM at the given address. */
+  loadBytes(startAddress: number, data: Uint8Array): void {
+    for (let i = 0; i < data.length; i++) {
+      const addr = (startAddress + i) & 0xffff;
+      // Only load into user RAM area ($4000-$FFFF)
+      if (addr >= 0x4000) {
+        this.ram[addr - 0x4000] = data[i];
+      }
+    }
+  }
+
+  /** Load all memory regions from a software catalog entry. */
+  loadSoftwareEntry(entry: SoftwareEntry): void {
+    for (const region of entry.regions) {
+      this.loadBytes(region.startAddress, region.data);
+    }
   }
 }

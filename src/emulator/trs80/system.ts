@@ -19,6 +19,7 @@
 
 import { Z80 } from '@/cpu/z80';
 import type { IOBus } from '@/cpu/z80/types';
+import type { SoftwareEntry } from '@/emulator/apple1/software-library';
 import { TRS80Memory } from './memory';
 import { TRS80Keyboard, type TRS80Key } from './keyboard';
 import { TRS80Video, type VideoChangeCallback } from './video';
@@ -180,5 +181,22 @@ export class TRS80System {
   /** Check if the CPU is halted. */
   isHalted(): boolean {
     return this.cpu.halted;
+  }
+
+  /**
+   * Load a software entry into memory.
+   * - Loads all regions into RAM
+   * - Sets PC to entry point if provided
+   * Note: TRS-80 software loads into RAM ($4000+) and doesn't replace ROM.
+   */
+  loadSoftware(entry: SoftwareEntry): void {
+    if (entry.regions.length === 0) return;
+
+    this.memory.loadSoftwareEntry(entry);
+
+    // Set PC to entry point if specified
+    if (entry.entryPoint !== undefined && entry.entryPoint !== 0) {
+      this.cpu.pc = entry.entryPoint;
+    }
   }
 }

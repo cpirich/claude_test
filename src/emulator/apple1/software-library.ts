@@ -12,7 +12,7 @@ export type SoftwareCategory =
   | "game";
 
 /** Supported file formats for external program loading. */
-export type ProgramFileFormat = "binary" | "intel-hex" | "woz-hex-dump";
+export type ProgramFileFormat = "binary" | "intel-hex" | "woz-hex-dump" | "trs80-bas" | "trs80-cmd";
 
 /** Target machine type. */
 export type MachineType = "apple1" | "trs80";
@@ -61,6 +61,10 @@ export interface SoftwareEntry {
   defaultLoadAddress?: number;
   /** Which machine this entry targets. Defaults to "apple1". */
   machine?: MachineType;
+  /** True if this is a text program that should be typed into the emulator. */
+  textMode?: boolean;
+  /** For text mode programs, the full text content to type. */
+  listing?: string;
 }
 
 /** Result from parsing a program file. */
@@ -70,4 +74,8 @@ export interface ParsedProgram {
   format: ProgramFileFormat;
   sizeBytes: number;
   addressRange: string;
+  /** True if this is a text program that should be typed into the emulator rather than loaded into memory. */
+  textMode?: boolean;
+  /** For text mode programs, the full text content to type. */
+  listing?: string;
 }
