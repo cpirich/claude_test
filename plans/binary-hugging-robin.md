@@ -1,75 +1,42 @@
-# Fix Apple I Terminal Display Proportions
+# Refactor CI Workflows
 
 ## Context
-The Apple I terminal (40x24 chars) needs to look like a real Apple I CRT — chunky, wide characters filling a 4:3 display. VT323 font characters are naturally tall and narrow, so at a font size where 24 rows fit vertically, the text only fills ~60% of the container width. Static CSS approaches (letter-spacing, scaleX) haven't worked reliably.
+The `optimize-playwright-tests` branch accumulated debugging infrastructure (e2e-debug.yml, verbose diagnostic test, Fast Refresh workarounds) while hunting a ROM loading bug. Now that the root cause is fixed (`loadBytes` not writing to ROM space), we should clean up the CI workflows and split E2E into a parallel job.
 
-## Approach: Dynamic Scale-to-Fit
+## Changes
 
-Render the text at a large base font size (for chunky characters), measure its natural dimensions, then apply `transform: scale(scaleX, scaleY)` to fit the container exactly.
+### 1. Delete `e2e-debug.yml`
+Temporary debugging workflow, no longer needed.
 
-### Files to modify
+### 2. Split `ci.yml` into parallel jobs
 
-1. **`src/app/globals.css`** — `.apple1-terminal` class:
-   - Set font-size to 28px (large for chunky chars)
-   - line-height: 1.0
-   - Remove any letter-spacing or transforms
-   - Keep font-family and color
+**Job 1: `lint-and-test`** (fast, ~2 min)
+- Checkout, install, type check, lint, vitest
 
-2. **`src/components/TerminalDisplay.tsx`** — Apple I pre element:
-   - Remove inline width/height/transform/margin styles from the pre
-   - Add a `useEffect` + `useRef` to measure the pre's natural `scrollWidth` and `scrollHeight`
-   - Calculate scale factors: `scaleX = availableWidth / naturalWidth`, `scaleY = availableHeight / naturalHeight`
-   - Apply `transform: scale(scaleX, scaleY)` with `transform-origin: top left`
-   - Available dimensions = container (720x540) minus header (~28px) and padding (~16px each side)
-   - The pre should be positioned with small padding from edges
+**Job 2: `e2e`** (parallel, ~4 min)
+- Checkout, install, build, install Playwright, run E2E, upload artifacts on failure
 
-### Implementation detail
+Both jobs run in parallel with no dependency between them. The build step only runs in the `e2e` job since unit tests and lint don't need it. This avoids artifact sharing between jobs — simpler and no serial dependency.
 
-```tsx
-// In Apple1Terminal component, after the refs:
-const [termScale, setTermScale] = useState({ x: 1, y: 1 });
+### 3. Slim down the diagnostic test in `trs80.spec.ts`
 
-useEffect(() => {
-  const pre = preRef.current;
-  const container = containerRef.current;
-  if (!pre || !container) return;
-  const containerRect = container.getBoundingClientRect();
-  const headerHeight = 28; // header bar
-  const pad = 16;
-  const availW = containerRect.width - pad * 2;
-  const availH = containerRect.height - headerHeight - pad * 2;
-  const natW = pre.scrollWidth;
-  const natH = pre.scrollHeight;
-  if (natW > 0 && natH > 0) {
-    setTermScale({ x: availW / natW, y: availH / natH });
-  }
-}, [lines]); // recalc when content changes
-```
+Replace the verbose `TRS-80 ROM Loading Diagnostics` describe block with a focused smoke test that:
+- Verifies route interception delivers correct ROM data (size + first byte)
+- Confirms the ROM actually loads (type `PRINT 1+1` and check for ` 2` in output, distinct from the typed command)
 
-Pre element:
-```tsx
-<pre
-  ref={preRef}
-  className="apple1-terminal"
-  style={{
-    transform: `scale(${termScale.x}, ${termScale.y})`,
-    transformOrigin: "top left",
-    position: "absolute",
-    top: "44px", // header + padding
-    left: "16px",
-  }}
->
-```
+Remove: console message capture, error dialog checks, multi-step logging. Keep it under 30 lines.
 
-### Why this works
-- Characters render at 28px (large and chunky)
-- scaleX > 1 stretches them wider (matching the real Apple I's wide chars)
-- scaleY < 1 compresses rows to fit the height
-- Result: squat, wide characters filling the 4:3 frame — exactly like the reference
+### 4. Keep `playwright.config.ts` production-build approach
+
+The `npx serve out -l 3000` approach on CI is sound — deterministic, no HMR, fast startup. Simplify the comment to reflect that static serving is preferred for CI reliability (rather than focusing on the now-fixed Fast Refresh issue).
+
+## Files to modify
+- `.github/workflows/ci.yml` — split into 2 parallel jobs
+- `.github/workflows/e2e-debug.yml` — delete
+- `tests/e2e/trs80.spec.ts` — slim down diagnostic test
+- `playwright.config.ts` — simplify comment
 
 ## Verification
-1. Run `npx vitest run` — all tests should pass
-2. Check browser at localhost:3100 — load Screen Fill Test
-3. All 40x24 characters should fill the container edge-to-edge
-4. Characters should look chunky and wide like the reference image
-5. Verify TRS-80 tab is unaffected
+1. `npx vitest run` — unit tests still pass
+2. `npx playwright test tests/e2e/trs80.spec.ts` — TRS-80 E2E tests pass locally
+3. Push to branch, verify both CI jobs run in parallel and pass
