@@ -248,8 +248,8 @@ test.describe('TRS-80 Level II BASIC', () => {
       'RUN',
     ]);
 
-    // Wait for program to execute
-    await page.waitForTimeout(5000);
+    // Wait for program to execute and return to READY
+    await waitForTerminalText(page, 'READY', { timeout: 10_000 });
 
     const text = await getTerminalText(page);
 

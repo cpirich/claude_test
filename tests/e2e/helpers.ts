@@ -74,7 +74,7 @@ async function dispatchKey(page: Page, type: 'keydown' | 'keyup', key: string): 
  * Handles TRS-80 shifted characters (=, *, +, etc.) by dispatching
  * raw keyboard events with SHIFT + base key.
  */
-export async function typeInTerminal(page: Page, text: string, delayMs = 25): Promise<void> {
+export async function typeInTerminal(page: Page, text: string, delayMs = process.env.CI ? 50 : 25): Promise<void> {
   // Ensure terminal is focused
   await getTerminal(page).click();
   await page.waitForTimeout(100);
@@ -101,7 +101,7 @@ export async function typeInTerminal(page: Page, text: string, delayMs = 25): Pr
 /**
  * Type a string and press Enter.
  */
-export async function typeCommand(page: Page, command: string, delayMs = 25): Promise<void> {
+export async function typeCommand(page: Page, command: string, delayMs = process.env.CI ? 50 : 25): Promise<void> {
   await typeInTerminal(page, command, delayMs);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(50);
@@ -113,7 +113,7 @@ export async function typeCommand(page: Page, command: string, delayMs = 25): Pr
 export async function typeProgram(
   page: Page,
   lines: string[],
-  delayMs = 25
+  delayMs = process.env.CI ? 50 : 25
 ): Promise<void> {
   for (const line of lines) {
     await typeCommand(page, line, delayMs);
@@ -151,7 +151,7 @@ export async function closeSoftwareLibrary(page: Page): Promise<void> {
  */
 export async function goToMachine(
   page: Page,
-  machine: 'apple1' | 'trs80'
+  machine: 'apple1' | 'trs80' | 'altair8800'
 ): Promise<void> {
   await page.goto(`/${machine}`);
   // Wait for the terminal <pre> element to appear
