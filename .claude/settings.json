@@ -7,6 +7,28 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "plansDirectory": "plans",
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": [
+      "Bash(command:npx vitest*)",
+      "Bash(command:npm test*)",
+      "Bash(command:npm run*)",
+      "Bash(command:git status*)",
+      "Bash(command:git diff*)",
+      "Bash(description:run tests)",
+      "Bash(description:run vitest)",
+      "Bash(description:run test suite)",
+      "Bash(description:run unit tests)",
+      "Bash(description:run build)",
+      "Bash(description:build project)",
+      "Bash(description:build Next.js)",
+      "Bash(description:install dependencies)",
+      "Bash(description:check git status)",
+      "Bash(description:show git diff)",
+      "Bash(description:run development server)",
+      "Bash(description:check build output)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
