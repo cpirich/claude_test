@@ -23,8 +23,9 @@ export interface Trs80State {
  * The caller must also press/release SHIFT in the emulator.
  */
 const SYNTHETIC_SHIFT: Record<string, TRS80Key> = {
-  '=': '-',   // = is SHIFT+- on TRS-80
-  "'": '7',   // ' is SHIFT+7 on TRS-80
+  '!': '1', '"': '2', '#': '3', '$': '4', '%': '5',
+  '&': '6', "'": '7', '(': '8', ')': '9',
+  '*': ':', '+': ';', '<': ',', '=': '-', '>': '.', '?': '/',
 };
 
 /**

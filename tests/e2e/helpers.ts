@@ -40,7 +40,7 @@ export async function waitForTerminalText(
   text: string,
   options?: { timeout?: number }
 ): Promise<void> {
-  const timeout = options?.timeout ?? 30_000;
+  const timeout = options?.timeout ?? 10_000;
   await expect(async () => {
     const content = await getTerminalText(page);
     expect(content).toContain(text);
@@ -48,33 +48,12 @@ export async function waitForTerminalText(
 }
 
 /**
- * TRS-80 shifted character map.
- * Maps characters that require SHIFT on the TRS-80 to their base key.
- * e.g. '=' requires SHIFT+'-' on TRS-80 keyboard.
- */
-const TRS80_SHIFTED: Record<string, string> = {
-  '=': '-', '+': ';', '*': ':', '!': '1', '"': '2', '#': '3',
-  '$': '4', '%': '5', '&': '6', "'": '7', '(': '8', ')': '9',
-  '<': ',', '>': '.', '?': '/',
-};
-
-/**
- * Dispatch a raw keyboard event on the focused element (terminal container).
- * Bypasses browser key remapping to send exact key values to the emulator.
- */
-async function dispatchKey(page: Page, type: 'keydown' | 'keyup', key: string): Promise<void> {
-  await page.evaluate(([t, k]) => {
-    const target = document.activeElement || document;
-    target.dispatchEvent(new KeyboardEvent(t, { key: k, bubbles: true }));
-  }, [type, key] as const);
-}
-
-/**
  * Type a string into the terminal one character at a time.
- * Handles TRS-80 shifted characters (=, *, +, etc.) by dispatching
- * raw keyboard events with SHIFT + base key.
+ * The emulator's SYNTHETIC_SHIFT map handles TRS-80 shifted characters
+ * (=, *, +, etc.) internally, so we just send the character directly
+ * via Playwright's keyboard API.
  */
-export async function typeInTerminal(page: Page, text: string, delayMs = 80): Promise<void> {
+export async function typeInTerminal(page: Page, text: string, delayMs = process.env.CI ? 50 : 25): Promise<void> {
   // Ensure terminal is focused
   await getTerminal(page).click();
   await page.waitForTimeout(100);
@@ -82,15 +61,6 @@ export async function typeInTerminal(page: Page, text: string, delayMs = 80): Pr
   for (const char of text) {
     if (char === ' ') {
       await page.keyboard.press('Space');
-    } else if (TRS80_SHIFTED[char]) {
-      // TRS-80 shifted character: dispatch SHIFT + base key via raw events
-      const baseKey = TRS80_SHIFTED[char];
-      await dispatchKey(page, 'keydown', 'Shift');
-      await page.waitForTimeout(20);
-      await dispatchKey(page, 'keydown', baseKey);
-      await page.waitForTimeout(30);
-      await dispatchKey(page, 'keyup', baseKey);
-      await dispatchKey(page, 'keyup', 'Shift');
     } else {
       await page.keyboard.press(char);
     }
@@ -101,10 +71,10 @@ export async function typeInTerminal(page: Page, text: string, delayMs = 80): Pr
 /**
  * Type a string and press Enter.
  */
-export async function typeCommand(page: Page, command: string, delayMs = 80): Promise<void> {
+export async function typeCommand(page: Page, command: string, delayMs = process.env.CI ? 50 : 25): Promise<void> {
   await typeInTerminal(page, command, delayMs);
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(50);
 }
 
 /**
@@ -113,12 +83,12 @@ export async function typeCommand(page: Page, command: string, delayMs = 80): Pr
 export async function typeProgram(
   page: Page,
   lines: string[],
-  delayMs = 80
+  delayMs = process.env.CI ? 50 : 25
 ): Promise<void> {
   for (const line of lines) {
     await typeCommand(page, line, delayMs);
     // Extra wait between lines for BASIC to process
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(100);
   }
 }
 
@@ -148,14 +118,37 @@ export async function closeSoftwareLibrary(page: Page): Promise<void> {
 
 /**
  * Navigate to a machine page and wait for the terminal to be ready.
+ *
+ * On CI with `npm run dev`, the Next.js dev server may still be compiling
+ * when the page first loads. We use a production build on CI (configured in
+ * playwright.config.ts) to avoid Fast Refresh / HMR issues entirely.
+ *
+ * The navigation retry handles the rare case where the server responds to
+ * the health check before the specific page route is ready.
  */
 export async function goToMachine(
   page: Page,
-  machine: 'apple1' | 'trs80'
+  machine: 'apple1' | 'trs80' | 'altair8800'
 ): Promise<void> {
-  await page.goto(`/${machine}`);
-  // Wait for the terminal <pre> element to appear
-  await getTerminal(page).waitFor({ timeout: 30_000 });
+  // Navigate with retries — the server may not have the page ready yet
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await page.goto(`/${machine}`);
+    try {
+      await getTerminal(page).waitFor({ timeout: 15_000 });
+      break; // Terminal appeared — page is ready
+    } catch {
+      if (attempt === maxAttempts) {
+        throw new Error(
+          `Terminal did not appear after ${maxAttempts} navigation attempts ` +
+          `(server may not be ready)`
+        );
+      }
+      // Wait before retrying
+      await page.waitForTimeout(2000);
+    }
+  }
+
   // Give the emulator time to boot
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(300);
 }

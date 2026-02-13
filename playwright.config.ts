@@ -7,7 +7,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : 3,
   reporter: 'html',
-  timeout: 60_000,
+  timeout: 30_000,
 
   use: {
     baseURL: 'http://localhost:3000',
@@ -22,7 +22,12 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev',
+    // On CI, serve the pre-built static export (npm run build runs in an
+    // earlier CI step) to avoid Fast Refresh / HMR issues that can reset
+    // emulator state mid-test. Locally, use the dev server for HMR.
+    command: process.env.CI
+      ? 'npx serve out -l 3000'
+      : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

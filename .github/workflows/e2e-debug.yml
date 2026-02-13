@@ -1,0 +1,47 @@
+name: E2E Debug
+
+on:
+  push:
+    branches: [optimize-playwright-tests]
+
+jobs:
+  e2e-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify ROM fixtures
+        run: |
+          echo "Level 1 ROM:" && wc -c tests/e2e/fixtures/roms/level1.rom
+          echo "Level 2 ROM:" && wc -c tests/e2e/fixtures/roms/level2.rom
+          echo "First bytes of level2.rom:" && xxd -l 16 tests/e2e/fixtures/roms/level2.rom
+
+      - name: Run all TRS-80 tests
+        run: npx playwright test tests/e2e/trs80.spec.ts --retries=1 --reporter=list
+        timeout-minutes: 5
+
+      - name: Upload Playwright results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-debug-results
+          path: test-results/
+          retention-days: 3

@@ -115,14 +115,24 @@ export class TRS80Memory implements Memory {
     return 0;
   }
 
-  /** Load a block of bytes into RAM at the given address. */
+  /** Load a block of bytes into memory at the given address.
+   * - $0000-$2FFF: loads into ROM
+   * - $4000-$FFFF: loads into user RAM
+   * - Other addresses: ignored (keyboard, video, unused areas)
+   */
   loadBytes(startAddress: number, data: Uint8Array): void {
     for (let i = 0; i < data.length; i++) {
       const addr = (startAddress + i) & 0xffff;
-      // Only load into user RAM area ($4000-$FFFF)
-      if (addr >= 0x4000) {
+
+      // ROM area ($0000-$2FFF)
+      if (addr < 0x3000) {
+        this.rom[addr] = data[i];
+      }
+      // User RAM area ($4000-$FFFF)
+      else if (addr >= 0x4000) {
         this.ram[addr - 0x4000] = data[i];
       }
+      // Other areas (keyboard, video, unused): ignored
     }
   }
 
