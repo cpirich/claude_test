@@ -50,7 +50,12 @@ async function setupRomRoutes(page: import('@playwright/test').Page) {
 
 /**
  * Load a ROM from the software library modal.
- * Handles the full flow: open modal → select entry → click load → close modal.
+ * Handles the full flow: open modal → select entry → download → wait for boot.
+ *
+ * IMPORTANT: We must wait for the modal to close before checking the terminal.
+ * The download is async — if we check for "READY" too early, we'll see the
+ * stub ROM's READY (already on screen) instead of the new ROM's boot prompt.
+ * The modal closes only after the ROM has been loaded into the emulator.
  */
 async function loadFromLibrary(
   page: import('@playwright/test').Page,
@@ -59,7 +64,8 @@ async function loadFromLibrary(
 ) {
   // Open software library
   await page.locator('button[title="Software Library"]').click();
-  await page.getByText('SOFTWARE LIBRARY', { exact: true }).waitFor({ timeout: 5000 });
+  const modalTitle = page.getByText('SOFTWARE LIBRARY', { exact: true });
+  await modalTitle.waitFor({ timeout: 5000 });
 
   // Click the catalog entry
   const entryButton = page.locator('button', { hasText: entryName });
@@ -72,9 +78,16 @@ async function loadFromLibrary(
   const loadButton = page.locator('button', { hasText: /DOWNLOAD & LOAD|IN ROM/ });
   await loadButton.click();
 
+  // Wait for the modal to close — this signals the ROM has been downloaded,
+  // parsed, and loaded into the emulator (the onLoad callback closes the modal)
+  await modalTitle.waitFor({ state: 'hidden', timeout: 30_000 });
+
+  // Give the emulator time to reset and start executing the new ROM
+  await page.waitForTimeout(500);
+
   if (options?.expectMemorySize) {
     // Level II BASIC boots to "MEMORY SIZE?" prompt
-    await waitForTerminalText(page, 'MEMORY SIZE?', { timeout: 30_000 });
+    await waitForTerminalText(page, 'MEMORY SIZE?', { timeout: 15_000 });
     await page.keyboard.press('Enter');
   }
 
