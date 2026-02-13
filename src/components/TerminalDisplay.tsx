@@ -63,6 +63,7 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [loadedEntry, setLoadedEntry] = useState<SoftwareEntry | null>(null);
   const [softwareName, setSoftwareName] = useState("Woz Monitor");
+  const [termScale, setTermScale] = useState({ x: 1, y: 1 });
 
   const { state, keyPress, reset, loadSoftware, typeCommand } = useApple1();
 
@@ -96,6 +97,33 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
   useEffect(() => {
     containerRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    const pre = preRef.current;
+    const container = containerRef.current;
+    if (!pre || !container) return;
+    const containerRect = container.getBoundingClientRect();
+    const headerHeight = 28;
+    const pad = 16;
+    const availW = containerRect.width - pad * 2;
+    const availH = containerRect.height - headerHeight - pad * 2;
+
+    // Measure actual character width using a temporary element
+    const measure = document.createElement('span');
+    measure.style.font = getComputedStyle(pre).font;
+    measure.style.visibility = 'hidden';
+    measure.style.position = 'absolute';
+    measure.style.whiteSpace = 'pre';
+    measure.textContent = 'X'.repeat(cols);
+    document.body.appendChild(measure);
+    const natW = measure.offsetWidth;
+    document.body.removeChild(measure);
+
+    const natH = pre.scrollHeight;
+    if (natW > 0 && natH > 0) {
+      setTermScale({ x: availW / natW, y: availH / natH });
+    }
+  }, [lines, cols]);
 
   const focusTerminal = useCallback(() => {
     containerRef.current?.focus();
@@ -131,7 +159,8 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
   return (
     <div
       ref={containerRef}
-      className="crt-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative"
+      className="apple1-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative mx-auto"
+      style={{ width: "720px", height: "540px" }}
       onClick={focusTerminal}
       tabIndex={0}
     >
@@ -145,7 +174,7 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
               setSoftwareName("Woz Monitor");
               containerRef.current?.focus();
             }}
-            className="text-xs text-terminal-border hover:text-terminal-green border border-terminal-border hover:border-terminal-green px-2 py-0.5"
+            className="text-xs text-terminal-border hover:text-[var(--color-apple1-text)] border border-terminal-border hover:border-[var(--color-apple1-text)] px-2 py-0.5"
             title="Reset (cold boot)"
           >
             RESET
@@ -155,7 +184,7 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
               e.stopPropagation();
               setLibraryOpen(true);
             }}
-            className="text-xs text-terminal-border hover:text-terminal-green border border-terminal-border hover:border-terminal-green px-2 py-0.5"
+            className="text-xs text-terminal-border hover:text-[var(--color-apple1-text)] border border-terminal-border hover:border-[var(--color-apple1-text)] px-2 py-0.5"
             title="Software Library"
           >
             LOAD
@@ -165,7 +194,7 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
               e.stopPropagation();
               copyTerminalText();
             }}
-            className="text-xs text-terminal-border hover:text-terminal-green border border-terminal-border hover:border-terminal-green px-2 py-0.5"
+            className="text-xs text-terminal-border hover:text-[var(--color-apple1-text)] border border-terminal-border hover:border-[var(--color-apple1-text)] px-2 py-0.5"
             title="Copy terminal text to clipboard"
           >
             {copied ? "COPIED" : "COPY"}
@@ -175,10 +204,13 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
       </div>
       <pre
         ref={preRef}
-        className="p-3 font-mono text-sm leading-5 text-terminal-green overflow-hidden flex-1"
+        className="apple1-terminal overflow-hidden"
         style={{
-          minHeight: `${rows * 1.25 + 1.5}rem`,
-          maxHeight: `${rows * 1.25 + 1.5}rem`,
+          transform: `scale(${termScale.x}, ${termScale.y})`,
+          transformOrigin: "top left",
+          position: "absolute",
+          top: "44px",
+          left: "16px",
         }}
       >
         {displayLines.map((line: string, i: number) => (
@@ -187,7 +219,7 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
               <>
                 {line.substring(0, cursorCol)}
                 {cursorVisible ? (
-                  <span className="bg-terminal-green text-terminal-bg">
+                  <span className="bg-[var(--color-apple1-text)] text-terminal-bg">
                     {line.charAt(cursorCol) || " "}
                   </span>
                 ) : (
@@ -222,10 +254,12 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
 
 function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRef?: React.RefObject<TerminalHandle | null>; onSoftwareLoad?: (id: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
   const [cursorVisible, setCursorVisible] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [loadedEntry, setLoadedEntry] = useState<SoftwareEntry | null>(null);
   const [softwareName, setSoftwareName] = useState("Stub ROM");
+  const [termScale, setTermScale] = useState({ x: 1, y: 1 });
 
   const { state, onKeyDown, onKeyUp, reset, loadSoftware, typeCommand } = useTrs80();
 
@@ -265,6 +299,33 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
     containerRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    const pre = preRef.current;
+    const container = containerRef.current;
+    if (!pre || !container) return;
+    const containerRect = container.getBoundingClientRect();
+    const headerHeight = 28;
+    const pad = 16;
+    const availW = containerRect.width - pad * 2;
+    const availH = containerRect.height - headerHeight - pad * 2;
+
+    // Measure actual character width using a temporary element
+    const measure = document.createElement('span');
+    measure.style.font = getComputedStyle(pre).font;
+    measure.style.visibility = 'hidden';
+    measure.style.position = 'absolute';
+    measure.style.whiteSpace = 'pre';
+    measure.textContent = 'X'.repeat(cols);
+    document.body.appendChild(measure);
+    const natW = measure.offsetWidth;
+    document.body.removeChild(measure);
+
+    const natH = pre.scrollHeight;
+    if (natW > 0 && natH > 0) {
+      setTermScale({ x: availW / natW, y: availH / natH });
+    }
+  }, [lines, cols]);
+
   const focusTerminal = useCallback(() => {
     containerRef.current?.focus();
   }, []);
@@ -301,7 +362,8 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
   return (
     <div
       ref={containerRef}
-      className="crt-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative"
+      className="crt-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative mx-auto"
+      style={{ width: "720px", height: "540px" }}
       onClick={focusTerminal}
       tabIndex={0}
     >
@@ -344,10 +406,14 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
         <span className="text-xs text-terminal-border">{cols}&times;{rows}</span>
       </div>
       <pre
-        className="p-3 font-mono text-sm leading-5 text-terminal-green overflow-hidden flex-1"
+        ref={preRef}
+        className="trs80-terminal overflow-hidden"
         style={{
-          minHeight: `${rows * 1.25 + 1.5}rem`,
-          maxHeight: `${rows * 1.25 + 1.5}rem`,
+          transform: `scale(${termScale.x}, ${termScale.y})`,
+          transformOrigin: "top left",
+          position: "absolute",
+          top: "44px",
+          left: "16px",
         }}
       >
         {displayLines.map((line: string, i: number) => (
@@ -356,11 +422,11 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
               <>
                 {line.substring(0, cursorCol)}
                 {cursorVisible ? (
-                  <span className="bg-terminal-green text-terminal-bg">
+                  <span className="trs80-cursor bg-white text-terminal-bg">
                     {line.charAt(cursorCol) || " "}
                   </span>
                 ) : (
-                  <span>{line.charAt(cursorCol) || " "}</span>
+                  <span className="trs80-cursor">{line.charAt(cursorCol) || " "}</span>
                 )}
                 {line.substring(cursorCol + 1)}
               </>

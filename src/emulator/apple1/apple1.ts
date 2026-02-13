@@ -82,6 +82,7 @@ export class Apple1 {
    * - Diagnostic ROMs at $FF00: disable Woz Monitor, clear state, load, reset CPU
    * - RAM programs: load into RAM, set PC to entry point
    * - Entries with no regions (e.g. "Woz Monitor"): no-op
+   * - Always clears the terminal screen when loading new software
    */
   loadSoftware(entry: SoftwareEntry): void {
     if (entry.regions.length === 0) return;
@@ -97,6 +98,7 @@ export class Apple1 {
       this.memory.loadSoftwareEntry(entry);
       this.cpu.reset(); // Reads reset vector from loaded code
     } else {
+      this.terminal.reset();
       this.memory.loadSoftwareEntry(entry);
       this.cpu.pc = entry.entryPoint;
     }

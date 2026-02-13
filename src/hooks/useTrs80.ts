@@ -196,26 +196,11 @@ export function useTrs80() {
     setState((prev) => ({ ...prev, currentSoftware: null }));
   }, []);
 
-  /** Load a software entry — ROM entries replace ROM and reset, RAM entries poke into RAM. */
+  /** Load a software entry into memory. */
   const loadSoftware = useCallback((entry: SoftwareEntry) => {
     const emu = emulatorRef.current;
     if (!emu) return;
-    if (entry.regions.length === 0) return;
-
-    const isRom = entry.regions.some((r) => r.startAddress < 0x3000);
-    if (isRom) {
-      // ROM replacement: load into ROM space and reset
-      const romRegion = entry.regions[0];
-      emu.loadROM(romRegion.data);
-      emu.reset();
-    } else {
-      // RAM program: poke bytes into RAM at specified addresses
-      for (const region of entry.regions) {
-        for (let i = 0; i < region.data.length; i++) {
-          emu.memory.write(region.startAddress + i, region.data[i]);
-        }
-      }
-    }
+    emu.loadSoftware(entry);
     setState((prev) => ({ ...prev, currentSoftware: entry.id }));
   }, []);
 

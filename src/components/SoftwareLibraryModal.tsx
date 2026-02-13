@@ -43,6 +43,8 @@ const FORMAT_LABELS: Record<FormatOption, string> = {
   binary: "BINARY",
   "intel-hex": "HEX",
   "woz-hex-dump": "WOZ",
+  "trs80-bas": "BAS",
+  "trs80-cmd": "CMD",
 };
 
 function formatSize(bytes: number): string {
@@ -170,6 +172,8 @@ function BrowseTab({
           sizeBytes: parsed.sizeBytes > 0 ? parsed.sizeBytes : selectedEntry.sizeBytes,
           addressRange:
             parsed.addressRange !== "$0000" ? parsed.addressRange : selectedEntry.addressRange,
+          textMode: parsed.textMode,
+          listing: parsed.listing,
         };
         onLoad(hydrated);
       } catch (err) {
@@ -343,6 +347,8 @@ function ZipFilePicker({
         sizeBytes: parsed.sizeBytes,
         addressRange: parsed.addressRange,
         isStub: false,
+        textMode: parsed.textMode,
+        listing: parsed.listing,
       };
       onLoad(entry);
     } catch (err) {
@@ -448,6 +454,8 @@ function UrlTab({ onLoad }: { onLoad: (entry: SoftwareEntry) => void }) {
         sizeBytes: parsed.sizeBytes,
         addressRange: parsed.addressRange,
         isStub: false,
+        textMode: parsed.textMode,
+        listing: parsed.listing,
       };
       onLoad(entry);
     } catch (err) {
@@ -594,6 +602,8 @@ function FileTab({ onLoad }: { onLoad: (entry: SoftwareEntry) => void }) {
           sizeBytes: parsed.sizeBytes,
           addressRange: parsed.addressRange,
           isStub: false,
+          textMode: parsed.textMode,
+          listing: parsed.listing,
         };
         onLoad(entry);
       } catch (err) {
@@ -656,13 +666,13 @@ function FileTab({ onLoad }: { onLoad: (entry: SoftwareEntry) => void }) {
         <div className="text-xs mb-1">DROP FILE HERE</div>
         <div className="text-xs mb-2">or click to browse</div>
         <div className="text-xs text-terminal-border/60">
-          .bin .hex .ihx .txt .rom .zip
+          .bin .hex .ihx .txt .rom .zip .cmd .bas .asm .cas
         </div>
       </div>
       <input
         ref={fileInputRef}
         type="file"
-        accept=".bin,.hex,.ihx,.txt,.rom,.zip"
+        accept=".bin,.hex,.ihx,.txt,.rom,.zip,.cmd,.bas,.asm,.cas"
         onChange={handleFileSelect}
         className="hidden"
       />
