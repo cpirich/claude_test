@@ -40,7 +40,7 @@ export async function waitForTerminalText(
   text: string,
   options?: { timeout?: number }
 ): Promise<void> {
-  const timeout = options?.timeout ?? 30_000;
+  const timeout = options?.timeout ?? 10_000;
   await expect(async () => {
     const content = await getTerminalText(page);
     expect(content).toContain(text);
@@ -74,7 +74,7 @@ async function dispatchKey(page: Page, type: 'keydown' | 'keyup', key: string): 
  * Handles TRS-80 shifted characters (=, *, +, etc.) by dispatching
  * raw keyboard events with SHIFT + base key.
  */
-export async function typeInTerminal(page: Page, text: string, delayMs = 80): Promise<void> {
+export async function typeInTerminal(page: Page, text: string, delayMs = 25): Promise<void> {
   // Ensure terminal is focused
   await getTerminal(page).click();
   await page.waitForTimeout(100);
@@ -101,10 +101,10 @@ export async function typeInTerminal(page: Page, text: string, delayMs = 80): Pr
 /**
  * Type a string and press Enter.
  */
-export async function typeCommand(page: Page, command: string, delayMs = 80): Promise<void> {
+export async function typeCommand(page: Page, command: string, delayMs = 25): Promise<void> {
   await typeInTerminal(page, command, delayMs);
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(50);
 }
 
 /**
@@ -113,12 +113,12 @@ export async function typeCommand(page: Page, command: string, delayMs = 80): Pr
 export async function typeProgram(
   page: Page,
   lines: string[],
-  delayMs = 80
+  delayMs = 25
 ): Promise<void> {
   for (const line of lines) {
     await typeCommand(page, line, delayMs);
     // Extra wait between lines for BASIC to process
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(100);
   }
 }
 
@@ -157,5 +157,5 @@ export async function goToMachine(
   // Wait for the terminal <pre> element to appear
   await getTerminal(page).waitFor({ timeout: 30_000 });
   // Give the emulator time to boot
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(300);
 }

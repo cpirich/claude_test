@@ -54,11 +54,10 @@ test.describe('Apple I Emulator', () => {
     await waitForTerminalText(page, '\\');
     // Type something
     await typeInTerminal(page, 'ABCD');
-    await page.waitForTimeout(500);
+    await waitForTerminalText(page, 'ABCD');
 
     // Click reset
     await clickReset(page);
-    await page.waitForTimeout(2000);
 
     // Should see fresh Woz Monitor prompt
     await waitForTerminalText(page, '\\');

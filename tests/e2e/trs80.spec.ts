@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   goToMachine,
   getTerminalText,
@@ -12,6 +14,27 @@ import {
 
 test.describe('TRS-80 Emulator', () => {
   test.beforeEach(async ({ page }) => {
+    // Intercept ROM downloads and serve local fixtures
+    const fixturesDir = path.join(__dirname, 'fixtures', 'roms');
+
+    await page.route('**/model1-level1.rom', async (route) => {
+      const rom = fs.readFileSync(path.join(fixturesDir, 'level1.rom'));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/octet-stream',
+        body: rom,
+      });
+    });
+
+    await page.route('**/model1-level2.rom', async (route) => {
+      const rom = fs.readFileSync(path.join(fixturesDir, 'level2.rom'));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/octet-stream',
+        body: rom,
+      });
+    });
+
     await goToMachine(page, 'trs80');
   });
 
@@ -42,10 +65,9 @@ test.describe('TRS-80 Emulator', () => {
   test('should reset emulator on RESET click', async ({ page }) => {
     await waitForTerminalText(page, 'READY');
     await typeInTerminal(page, 'TEST');
-    await page.waitForTimeout(500);
+    await waitForTerminalText(page, 'TEST');
 
     await clickReset(page);
-    await page.waitForTimeout(2000);
 
     // Should see fresh prompt after reset
     await waitForTerminalText(page, 'READY');
@@ -54,6 +76,27 @@ test.describe('TRS-80 Emulator', () => {
 
 test.describe('TRS-80 Level I BASIC', () => {
   test.beforeEach(async ({ page }) => {
+    // Intercept ROM downloads and serve local fixtures
+    const fixturesDir = path.join(__dirname, 'fixtures', 'roms');
+
+    await page.route('**/model1-level1.rom', async (route) => {
+      const rom = fs.readFileSync(path.join(fixturesDir, 'level1.rom'));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/octet-stream',
+        body: rom,
+      });
+    });
+
+    await page.route('**/model1-level2.rom', async (route) => {
+      const rom = fs.readFileSync(path.join(fixturesDir, 'level2.rom'));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/octet-stream',
+        body: rom,
+      });
+    });
+
     await goToMachine(page, 'trs80');
     // Load Level I BASIC from the software library
     await page.locator('button[title="Software Library"]').click();
@@ -61,12 +104,11 @@ test.describe('TRS-80 Level I BASIC', () => {
 
     // Find and click Level I BASIC in the catalog
     await page.locator('button', { hasText: /Level I BASIC/i }).click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(200);
 
     // Click the action button in the modal (DOWNLOAD & LOAD or IN ROM)
     // Target the button inside the modal, not the header LOAD button
     await page.locator('button', { hasText: /DOWNLOAD & LOAD|IN ROM/ }).click();
-    await page.waitForTimeout(3000);
 
     // Wait for BASIC to boot — should show READY
     await waitForTerminalText(page, 'READY', { timeout: 15_000 });
@@ -77,18 +119,12 @@ test.describe('TRS-80 Level I BASIC', () => {
     expect(text).toContain('READY');
   });
 
-  // The following tests require actual Level I BASIC ROM functionality.
-  // In the test environment, the ROM download may fail and the stub ROM is used instead.
-  // The stub ROM only echoes keyboard input and does not execute BASIC programs.
-  // These tests are skipped until the ROM loading in the test environment is reliable.
-
-  test.skip('should execute PRINT command', async ({ page }) => {
+  test('should execute PRINT command', async ({ page }) => {
     await typeCommand(page, 'PRINT 42');
-    await page.waitForTimeout(2000);
     await waitForTerminalText(page, '42');
   });
 
-  test.skip('should execute simple FOR loop (1 to 5)', async ({ page }) => {
+  test('should execute simple FOR loop (1 to 5)', async ({ page }) => {
     // Type a FOR loop program
     await typeProgram(page, [
       '10 FOR I=1 TO 5',
@@ -97,8 +133,8 @@ test.describe('TRS-80 Level I BASIC', () => {
       'RUN',
     ]);
 
-    // Wait for program to execute
-    await page.waitForTimeout(5000);
+    // Wait for program to execute and return to READY
+    await waitForTerminalText(page, 'READY', { timeout: 5000 });
 
     const text = await getTerminalText(page);
 
@@ -114,7 +150,7 @@ test.describe('TRS-80 Level I BASIC', () => {
     expect(readyAfterRun).toBeGreaterThan(runIndex);
   });
 
-  test.skip('should execute FOR loop with STEP', async ({ page }) => {
+  test('should execute FOR loop with STEP', async ({ page }) => {
     await typeProgram(page, [
       '10 FOR I=2 TO 10 STEP 2',
       '20 PRINT I',
@@ -122,7 +158,8 @@ test.describe('TRS-80 Level I BASIC', () => {
       'RUN',
     ]);
 
-    await page.waitForTimeout(5000);
+    // Wait for program to execute
+    await waitForTerminalText(page, '10', { timeout: 5000 });
 
     const text = await getTerminalText(page);
     // Should print even numbers: 2, 4, 6, 8, 10
@@ -133,13 +170,12 @@ test.describe('TRS-80 Level I BASIC', () => {
     expect(text).toContain('10');
   });
 
-  test.skip('should execute arithmetic expressions', async ({ page }) => {
+  test('should execute arithmetic expressions', async ({ page }) => {
     await typeCommand(page, 'PRINT 7*8');
-    await page.waitForTimeout(2000);
     await waitForTerminalText(page, '56');
   });
 
-  test.skip('should handle variables', async ({ page }) => {
+  test('should handle variables', async ({ page }) => {
     await typeProgram(page, [
       '10 A=10',
       '20 B=20',
@@ -147,13 +183,33 @@ test.describe('TRS-80 Level I BASIC', () => {
       'RUN',
     ]);
 
-    await page.waitForTimeout(3000);
     await waitForTerminalText(page, '30');
   });
 });
 
 test.describe('TRS-80 Level II BASIC', () => {
   test.beforeEach(async ({ page }) => {
+    // Intercept ROM downloads and serve local fixtures
+    const fixturesDir = path.join(__dirname, 'fixtures', 'roms');
+
+    await page.route('**/model1-level1.rom', async (route) => {
+      const rom = fs.readFileSync(path.join(fixturesDir, 'level1.rom'));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/octet-stream',
+        body: rom,
+      });
+    });
+
+    await page.route('**/model1-level2.rom', async (route) => {
+      const rom = fs.readFileSync(path.join(fixturesDir, 'level2.rom'));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/octet-stream',
+        body: rom,
+      });
+    });
+
     await goToMachine(page, 'trs80');
     // Load Level II BASIC from the software library
     await page.locator('button[title="Software Library"]').click();
@@ -161,14 +217,17 @@ test.describe('TRS-80 Level II BASIC', () => {
 
     // Find and click Level II BASIC in the catalog (remote ROM, requires download)
     await page.locator('button', { hasText: /Level II BASIC/i }).click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(200);
 
     // Click DOWNLOAD & LOAD
     await page.locator('button', { hasText: /DOWNLOAD & LOAD/ }).click();
 
-    // In the test environment, the ROM download may not succeed, so the stub ROM is used
-    // The stub ROM boots directly to READY (no MEMORY SIZE? prompt)
-    await waitForTerminalText(page, 'READY', { timeout: 30_000 });
+    // Level II BASIC boots to "MEMORY SIZE?" prompt - press Enter to accept default
+    await waitForTerminalText(page, 'MEMORY SIZE?', { timeout: 30_000 });
+    await page.keyboard.press('Enter');
+
+    // Wait for "RADIO SHACK" banner or READY prompt
+    await waitForTerminalText(page, 'READY', { timeout: 10_000 });
   });
 
   test('should boot to READY prompt', async ({ page }) => {
@@ -176,18 +235,12 @@ test.describe('TRS-80 Level II BASIC', () => {
     expect(text).toContain('READY');
   });
 
-  // The following tests require actual Level II BASIC ROM functionality.
-  // In the test environment, the ROM download may fail and the stub ROM is used instead.
-  // The stub ROM only echoes keyboard input and does not execute BASIC programs.
-  // These tests are skipped until the ROM loading in the test environment is reliable.
-
-  test.skip('should execute PRINT command', async ({ page }) => {
+  test('should execute PRINT command', async ({ page }) => {
     await typeCommand(page, 'PRINT 42');
-    await page.waitForTimeout(2000);
     await waitForTerminalText(page, '42');
   });
 
-  test.skip('should execute FOR loop (1 to 5)', async ({ page }) => {
+  test('should execute FOR loop (1 to 5)', async ({ page }) => {
     await typeProgram(page, [
       '10 FOR I=1 TO 5',
       '20 PRINT I',
@@ -211,7 +264,7 @@ test.describe('TRS-80 Level II BASIC', () => {
     expect(readyAfterRun).toBeGreaterThan(runIndex);
   });
 
-  test.skip('should execute FOR loop with STEP', async ({ page }) => {
+  test('should execute FOR loop with STEP', async ({ page }) => {
     await typeProgram(page, [
       '10 FOR I=2 TO 10 STEP 2',
       '20 PRINT I',
@@ -219,7 +272,8 @@ test.describe('TRS-80 Level II BASIC', () => {
       'RUN',
     ]);
 
-    await page.waitForTimeout(5000);
+    // Wait for program to execute
+    await waitForTerminalText(page, '10', { timeout: 5000 });
 
     const text = await getTerminalText(page);
     // Should print even numbers: 2, 4, 6, 8, 10
@@ -230,9 +284,8 @@ test.describe('TRS-80 Level II BASIC', () => {
     expect(text).toContain('10');
   });
 
-  test.skip('should execute arithmetic expressions', async ({ page }) => {
+  test('should execute arithmetic expressions', async ({ page }) => {
     await typeCommand(page, 'PRINT 7*8');
-    await page.waitForTimeout(2000);
     await waitForTerminalText(page, '56');
   });
 });

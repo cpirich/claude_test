@@ -37,7 +37,6 @@ test.describe('Software Library Modal', () => {
 
     // Click LANG category
     await page.locator('button', { hasText: 'LANG' }).click();
-    await page.waitForTimeout(500);
 
     // Language entries should be visible
     const entries = page.locator('button', { hasText: /BASIC/i });
@@ -49,7 +48,6 @@ test.describe('Software Library Modal', () => {
 
     // Click on Woz Monitor entry
     await page.locator('button', { hasText: /Woz Monitor/i }).click();
-    await page.waitForTimeout(300);
 
     // Details panel should show entry info (AUTHOR, LOAD, SIZE fields)
     await expect(page.locator('text=AUTHOR:')).toBeVisible();
@@ -60,7 +58,6 @@ test.describe('Software Library Modal', () => {
 
     // Switch to URL tab
     await page.locator('button', { hasText: 'URL' }).click();
-    await page.waitForTimeout(300);
 
     // URL input should be visible
     await expect(page.locator('input[type="text"]').first()).toBeVisible();
@@ -71,7 +68,6 @@ test.describe('Software Library Modal', () => {
 
     // Switch to FILE tab
     await page.locator('button', { hasText: 'FILE' }).click();
-    await page.waitForTimeout(300);
 
     // Drop zone should be visible
     await expect(page.locator('text=DROP FILE HERE')).toBeVisible();
@@ -102,7 +98,6 @@ test.describe('Machine Switching', () => {
     // Click TRS-80 tab
     const trsTab = page.locator('[role="tab"]', { hasText: 'TRS-80' });
     await trsTab.click();
-    await page.waitForTimeout(2000);
 
     // URL should update
     await expect(page).toHaveURL(/trs80/);
@@ -117,7 +112,6 @@ test.describe('Machine Switching', () => {
     // Click Apple I tab
     const appleTab = page.locator('[role="tab"]', { hasText: 'Apple I' });
     await appleTab.click();
-    await page.waitForTimeout(2000);
 
     // URL should update
     await expect(page).toHaveURL(/apple1/);
@@ -157,14 +151,12 @@ test.describe('Machine Guide', () => {
 
     // Click to collapse
     await page.locator('button', { hasText: 'Hide Guide' }).click();
-    await page.waitForTimeout(300);
 
     // Should now show "Show Guide"
     await expect(page.locator('button', { hasText: 'Show Guide' })).toBeVisible();
 
     // Click to expand again
     await page.locator('button', { hasText: 'Show Guide' }).click();
-    await page.waitForTimeout(300);
 
     await expect(page.locator('button', { hasText: 'Hide Guide' })).toBeVisible();
   });
