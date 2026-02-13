@@ -3,9 +3,12 @@
 import { useRef, useEffect, useState, useCallback, useImperativeHandle } from "react";
 import { useApple1 } from "@/hooks/useApple1";
 import { useTrs80 } from "@/hooks/useTrs80";
+import { useAltair8800 } from "@/hooks/useAltair8800";
 import { SoftwareLibraryModal } from "./SoftwareLibraryModal";
+import { Altair8800Panel } from "./Altair8800Panel";
 import { getFullCatalog } from "@/emulator/apple1/software-catalog";
 import { getTrs80FullCatalog } from "@/emulator/trs80/software-catalog";
+import { getAltairFullCatalog } from "@/emulator/altair8800/software-catalog";
 import type { SoftwareEntry } from "@/emulator/apple1/software-library";
 
 export interface TerminalHandle {
@@ -13,7 +16,7 @@ export interface TerminalHandle {
 }
 
 interface TerminalDisplayProps {
-  machine: "apple1" | "trs80";
+  machine: "apple1" | "trs80" | "altair8800";
   terminalRef?: React.RefObject<TerminalHandle | null>;
   onSoftwareLoad?: (softwareId: string) => void;
 }
@@ -21,11 +24,13 @@ interface TerminalDisplayProps {
 const TERMINAL_COLS: Record<string, number> = {
   apple1: 40,
   trs80: 64,
+  altair8800: 80,
 };
 
 const TERMINAL_ROWS: Record<string, number> = {
   apple1: 24,
   trs80: 16,
+  altair8800: 24,
 };
 
 function LoadToast({ entry, onDismiss }: { entry: SoftwareEntry; onDismiss: () => void }) {
@@ -455,9 +460,223 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
   );
 }
 
+function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRef?: React.RefObject<TerminalHandle | null>; onSoftwareLoad?: (id: string) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
+  const [cursorVisible, setCursorVisible] = useState(true);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [loadedEntry, setLoadedEntry] = useState<SoftwareEntry | null>(null);
+  const [softwareName, setSoftwareName] = useState("TURNKEY BOOT");
+  const [termScale, setTermScale] = useState({ x: 1, y: 1 });
+
+  const {
+    state, panelState, onKeyDown, reset, loadSoftware, typeCommand,
+    panelAction, toggleAddressSwitch, toggleDataSwitch,
+  } = useAltair8800();
+
+  // Expose typeCommand via ref
+  useImperativeHandle(terminalHandleRef, () => ({ typeCommand }), [typeCommand]);
+
+  const { lines, cursorRow, cursorCol } = state;
+  const cols = TERMINAL_COLS.altair8800;
+  const rows = TERMINAL_ROWS.altair8800;
+
+  // Cursor blink
+  useEffect(() => {
+    const interval = setInterval(() => setCursorVisible((v) => !v), 530);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Capture keyboard events on the container div
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (libraryOpen) return;
+      onKeyDown(e);
+    };
+
+    el.addEventListener("keydown", handleKeyDown);
+    return () => {
+      el.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onKeyDown, libraryOpen]);
+
+  // Focus container on mount
+  useEffect(() => {
+    containerRef.current?.focus();
+  }, []);
+
+  // Scale terminal to fit
+  useEffect(() => {
+    const pre = preRef.current;
+    const container = containerRef.current;
+    if (!pre || !container) return;
+    const containerRect = container.getBoundingClientRect();
+    const headerHeight = 28;
+    const pad = 16;
+    const availW = containerRect.width - pad * 2;
+    const availH = containerRect.height - headerHeight - pad * 2;
+
+    const measure = document.createElement('span');
+    measure.style.font = getComputedStyle(pre).font;
+    measure.style.visibility = 'hidden';
+    measure.style.position = 'absolute';
+    measure.style.whiteSpace = 'pre';
+    measure.textContent = 'X'.repeat(cols);
+    document.body.appendChild(measure);
+    const natW = measure.offsetWidth;
+    document.body.removeChild(measure);
+
+    const natH = pre.scrollHeight;
+    if (natW > 0 && natH > 0) {
+      setTermScale({ x: availW / natW, y: availH / natH });
+    }
+  }, [lines, cols]);
+
+  const focusTerminal = useCallback(() => {
+    containerRef.current?.focus();
+  }, []);
+
+  const handleLoadSoftware = useCallback(
+    (entry: SoftwareEntry) => {
+      loadSoftware(entry);
+      setLibraryOpen(false);
+      setLoadedEntry(entry);
+      setSoftwareName(entry.name);
+      onSoftwareLoad?.(entry.id);
+      setTimeout(() => containerRef.current?.focus(), 0);
+    },
+    [loadSoftware, onSoftwareLoad]
+  );
+
+  const dismissToast = useCallback(() => setLoadedEntry(null), []);
+
+  const [copied, setCopied] = useState(false);
+  const copyTerminalText = useCallback(() => {
+    const text = (lines.length > 0 ? lines : []).map((l) => l.trimEnd()).join("\n").trimEnd();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [lines]);
+
+  const displayLines = lines.length > 0 ? lines : Array(rows).fill(" ".repeat(cols));
+
+  return (
+    <div className="flex flex-col gap-2 mx-auto" style={{ width: "720px" }}>
+      {/* Front Panel */}
+      <Altair8800Panel
+        panelState={panelState}
+        onToggleAddressSwitch={toggleAddressSwitch}
+        onToggleDataSwitch={toggleDataSwitch}
+        onPanelAction={panelAction}
+      />
+
+      {/* Serial Terminal */}
+      <div
+        ref={containerRef}
+        className="crt-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative"
+        style={{ width: "720px", height: "400px" }}
+        onClick={focusTerminal}
+        tabIndex={0}
+      >
+        <div className="flex items-center justify-between px-3 py-1 border-b border-terminal-border select-none">
+          <span className="text-xs text-terminal-border truncate">{softwareName}</span>
+          <div className="flex gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                reset();
+                setSoftwareName("TURNKEY BOOT");
+                containerRef.current?.focus();
+              }}
+              className="text-xs text-terminal-border hover:text-terminal-green border border-terminal-border hover:border-terminal-green px-2 py-0.5"
+              title="Reset (cold boot)"
+            >
+              RESET
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setLibraryOpen(true);
+              }}
+              className="text-xs text-terminal-border hover:text-terminal-green border border-terminal-border hover:border-terminal-green px-2 py-0.5"
+              title="Software Library"
+            >
+              LOAD
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                copyTerminalText();
+              }}
+              className="text-xs text-terminal-border hover:text-terminal-green border border-terminal-border hover:border-terminal-green px-2 py-0.5"
+              title="Copy terminal text to clipboard"
+            >
+              {copied ? "COPIED" : "COPY"}
+            </button>
+          </div>
+          <span className="text-xs text-terminal-border">{cols}&times;{rows}</span>
+        </div>
+        <pre
+          ref={preRef}
+          className="altair-terminal overflow-hidden"
+          style={{
+            transform: `scale(${termScale.x}, ${termScale.y})`,
+            transformOrigin: "top left",
+            position: "absolute",
+            top: "44px",
+            left: "16px",
+          }}
+        >
+          {displayLines.map((line: string, i: number) => (
+            <div key={i}>
+              {i === cursorRow ? (
+                <>
+                  {line.substring(0, cursorCol)}
+                  {cursorVisible ? (
+                    <span className="bg-terminal-green text-terminal-bg">
+                      {line.charAt(cursorCol) || " "}
+                    </span>
+                  ) : (
+                    <span>{line.charAt(cursorCol) || " "}</span>
+                  )}
+                  {line.substring(cursorCol + 1)}
+                </>
+              ) : (
+                line
+              )}
+            </div>
+          ))}
+        </pre>
+        {/* Post-load toast notification */}
+        {loadedEntry && (
+          <LoadToast entry={loadedEntry} onDismiss={dismissToast} />
+        )}
+        {/* Software Library Modal */}
+        <SoftwareLibraryModal
+          isOpen={libraryOpen}
+          onClose={() => {
+            setLibraryOpen(false);
+            setTimeout(() => containerRef.current?.focus(), 0);
+          }}
+          onLoad={handleLoadSoftware}
+          catalog={getAltairFullCatalog()}
+          machine="altair8800"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function TerminalDisplay({ machine, terminalRef, onSoftwareLoad }: TerminalDisplayProps) {
   if (machine === "apple1") {
     return <Apple1Terminal terminalHandleRef={terminalRef} onSoftwareLoad={onSoftwareLoad} />;
+  }
+  if (machine === "altair8800") {
+    return <Altair8800Terminal terminalHandleRef={terminalRef} onSoftwareLoad={onSoftwareLoad} />;
   }
   return <Trs80Terminal terminalHandleRef={terminalRef} onSoftwareLoad={onSoftwareLoad} />;
 }

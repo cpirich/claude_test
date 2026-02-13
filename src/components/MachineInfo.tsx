@@ -3,7 +3,7 @@
 import Image from "next/image";
 
 interface MachineInfoProps {
-  machine: "apple1" | "trs80";
+  machine: "apple1" | "trs80" | "altair8800";
   collapsed: boolean;
   onToggle: () => void;
   onCommandClick?: (cmd: string) => void;
@@ -116,12 +116,66 @@ const INFO: Record<
       attribution: "Photo: Dave Jones, CC BY-SA 4.0",
     },
   },
+  altair8800: {
+    name: "Altair 8800",
+    year: "1975",
+    history:
+      "The first commercially successful personal computer, sold as a kit by MITS for $439. Featured an Intel 8080 CPU, front panel toggle switches for programming, and a 2SIO serial board. Bill Gates and Paul Allen wrote its first BASIC interpreter, founding Micro-Soft.",
+    image: {
+      src: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Altair_8800_Computer.jpg/280px-Altair_8800_Computer.jpg",
+      alt: "Altair 8800 computer with front panel",
+      attribution: "Photo: Smithsonian Institution, Public Domain",
+    },
+  },
+};
+
+const ALTAIR_COMMANDS: Record<string, { quickStart: string[]; commands: CommandSet }> = {
+  default: {
+    quickStart: [
+      "Turnkey boot ROM loaded \u2014 serial terminal echoes typed characters.",
+      "Use the front panel switches or LOAD to load software.",
+    ],
+    commands: [
+      { cmd: "HELLO", desc: "Echo text to terminal" },
+    ],
+  },
+  "altair-kill-the-bit": {
+    quickStart: [
+      "Kill the Bit loaded. Click RUN on the front panel to start.",
+      "Watch the address LEDs \u2014 toggle sense switches to \u201ckill\u201d each lit bit!",
+    ],
+    commands: [],
+  },
+  "altair-basic-4k": {
+    quickStart: [
+      "Altair BASIC 4K loaded. Press Enter at \u201cMEMORY SIZE?\u201d for default.",
+      "Type BASIC commands at the OK prompt.",
+    ],
+    commands: [
+      { cmd: "PRINT 2+2", desc: "Evaluate expression" },
+      { cmd: '10 PRINT "HELLO"', desc: "Add a program line" },
+      { cmd: "LIST", desc: "Show program listing" },
+      { cmd: "RUN", desc: "Execute program" },
+    ],
+  },
+  "altair-basic-8k": {
+    quickStart: [
+      "Altair BASIC 8K loaded. Press Enter at \u201cMEMORY SIZE?\u201d for default.",
+      "Supports floating point, string handling, and more BASIC commands.",
+    ],
+    commands: [
+      { cmd: "PRINT 3.14*2", desc: "Floating point math" },
+      { cmd: '10 PRINT "HELLO"', desc: "Add a program line" },
+      { cmd: "LIST", desc: "Show program listing" },
+      { cmd: "RUN", desc: "Execute program" },
+    ],
+  },
 };
 
 const EMPTY_COMMAND_SET = { quickStart: [] as string[], commands: [] as CommandSet };
 
 function getCommandSet(machine: string, currentSoftware: string | null | undefined) {
-  const lookup = machine === "apple1" ? APPLE1_COMMANDS : TRS80_COMMANDS;
+  const lookup = machine === "apple1" ? APPLE1_COMMANDS : machine === "altair8800" ? ALTAIR_COMMANDS : TRS80_COMMANDS;
   if (!currentSoftware) return lookup.default;
   return lookup[currentSoftware] ?? EMPTY_COMMAND_SET;
 }

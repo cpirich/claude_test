@@ -15,7 +15,7 @@ export type SoftwareCategory =
 export type ProgramFileFormat = "binary" | "intel-hex" | "woz-hex-dump" | "trs80-bas" | "trs80-cmd";
 
 /** Target machine type. */
-export type MachineType = "apple1" | "trs80";
+export type MachineType = "apple1" | "trs80" | "altair8800";
 
 /** A contiguous block of bytes to load at a specific address. */
 export interface MemoryRegion {
