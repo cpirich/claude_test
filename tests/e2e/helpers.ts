@@ -118,14 +118,49 @@ export async function closeSoftwareLibrary(page: Page): Promise<void> {
 
 /**
  * Navigate to a machine page and wait for the terminal to be ready.
+ *
+ * On CI the Next.js dev server may still be compiling when the page first
+ * loads.  When compilation finishes, Fast Refresh rebuilds the React
+ * component tree, re-running the useEffect that creates the emulator — which
+ * resets it to the stub ROM and destroys any previously loaded ROM.
+ *
+ * To prevent this, we wait for Fast Refresh to finish (or a generous timeout)
+ * before returning, so all ROM-loading interactions happen after the dev
+ * server is stable.
  */
 export async function goToMachine(
   page: Page,
   machine: 'apple1' | 'trs80' | 'altair8800'
 ): Promise<void> {
+  // Track Fast Refresh activity so we can wait for it to settle
+  let lastRefreshAt = 0;
+  const onConsole = (msg: import('@playwright/test').ConsoleMessage) => {
+    if (msg.text().includes('Fast Refresh')) {
+      lastRefreshAt = Date.now();
+    }
+  };
+  page.on('console', onConsole);
+
   await page.goto(`/${machine}`);
   // Wait for the terminal <pre> element to appear
   await getTerminal(page).waitFor({ timeout: 30_000 });
-  // Give the emulator time to boot
-  await page.waitForTimeout(300);
+
+  // Wait for dev server compilation to settle.
+  // On CI the first Fast Refresh typically fires 3-6s after page load.
+  // We wait for either:
+  //   a) A Fast Refresh event followed by 2s of quiet, or
+  //   b) A maximum of 8s total if no Fast Refresh is seen
+  const stabilityMs = 2000;
+  const maxWaitMs = process.env.CI ? 8000 : 500;
+  const start = Date.now();
+
+  while (Date.now() - start < maxWaitMs) {
+    await page.waitForTimeout(500);
+    // If Fast Refresh fired and has been quiet for stabilityMs, we're done
+    if (lastRefreshAt > 0 && Date.now() - lastRefreshAt >= stabilityMs) {
+      break;
+    }
+  }
+
+  page.off('console', onConsole);
 }
