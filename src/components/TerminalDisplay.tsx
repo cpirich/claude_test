@@ -367,7 +367,7 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
   return (
     <div
       ref={containerRef}
-      className="crt-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative mx-auto"
+      className="trs80-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative mx-auto"
       style={{ width: "720px", height: "540px" }}
       onClick={focusTerminal}
       tabIndex={0}
@@ -577,7 +577,7 @@ function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHan
       {/* Serial Terminal */}
       <div
         ref={containerRef}
-        className="crt-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative"
+        className="altair-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative"
         style={{ width: "720px", height: "400px" }}
         onClick={focusTerminal}
         tabIndex={0}

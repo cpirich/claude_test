@@ -8,7 +8,7 @@ Browser-based microcomputer emulator built with Next.js 16, React 19, and TypeSc
 
 **Apple I (1976)** — MOS 6502 @ 1.023 MHz, 40x24 terminal display, 4KB RAM, Woz Monitor ROM. Blue-white phosphor CRT styling. Serial terminal output (no framebuffer).
 
-**TRS-80 Model I (1977)** — Zilog Z80 @ 1.774 MHz, 64x16 memory-mapped video, 48KB RAM, Level II BASIC ROM. White-on-black CRT styling with scanlines.
+**TRS-80 Model I (1977)** — Zilog Z80 @ 1.774 MHz, 64x16 memory-mapped video, 48KB RAM, Level II BASIC ROM. P4 phosphor warm off-white styling with Matrix Sans Raster 5x7 dot matrix font and scanlines.
 
 ### Key Architecture
 
@@ -22,7 +22,7 @@ Browser-based microcomputer emulator built with Next.js 16, React 19, and TypeSc
 
 ### Terminal Display
 
-Both terminals use VT323 font at 28px with dynamic `transform: scale()` to fill a 720x540 container. Character width is measured via a temporary span (not `scrollWidth`, which ignores trailing whitespace). CRT effects (scanlines, phosphor glow) are pure CSS.
+All terminals use 28px font with dynamic `transform: scale()` to fill a 720x540 container. Apple I uses VT323; TRS-80 and Altair use Matrix Sans Raster (5x7 dot matrix) with VT323 fallback. Character width is measured via a temporary span (not `scrollWidth`, which ignores trailing whitespace). CRT effects (scanlines, phosphor glow) are pure CSS.
 
 ### Software Loading
 

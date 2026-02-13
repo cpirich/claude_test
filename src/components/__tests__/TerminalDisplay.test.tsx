@@ -242,9 +242,9 @@ describe("TerminalDisplay", () => {
   });
 
   describe("TRS-80 styling and layout", () => {
-    it("applies crt-screen class to container", () => {
+    it("applies trs80-screen class to container", () => {
       const { container } = render(<TerminalDisplay machine="trs80" />);
-      const screenDiv = container.querySelector(".crt-screen");
+      const screenDiv = container.querySelector(".trs80-screen");
       expect(screenDiv).toBeTruthy();
     });
 
@@ -256,7 +256,7 @@ describe("TerminalDisplay", () => {
 
     it("sets fixed dimensions on container (720x540)", () => {
       const { container } = render(<TerminalDisplay machine="trs80" />);
-      const screenDiv = container.querySelector(".crt-screen") as HTMLElement;
+      const screenDiv = container.querySelector(".trs80-screen") as HTMLElement;
       expect(screenDiv.style.width).toBe("720px");
       expect(screenDiv.style.height).toBe("540px");
     });
