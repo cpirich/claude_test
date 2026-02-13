@@ -30,7 +30,7 @@ The SoftwareLibraryModal supports three loading methods: built-in catalog, URL f
 
 ## Plans
 
-Project plans and design documents are stored in the `plans/` directory.
+Project plans and design documents are stored in the `plans/` directory. Plan files must have meaningful, descriptive filenames (e.g., `machine-specific-format-filtering.md`, not auto-generated names). Commit plan files alongside the code they describe so we can look back later to see what was done.
 
 - [Microcomputer Emulator Selection](plans/microcomputer-emulator-selection.md) — Selected machines (Apple I, TRS-80 Model I), memory maps, test resources, and reference emulators
 
