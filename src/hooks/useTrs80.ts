@@ -266,7 +266,14 @@ export function useTrs80() {
 
     // Handle textMode BAS files by typing the listing instead of loading binary
     if (entry.textMode && entry.listing) {
-      typeCommand(entry.listing);
+      // Split listing into lines and type each line separately
+      const lines = entry.listing.split(/\r?\n/).filter(line => line.trim().length > 0);
+      lines.forEach((line, index) => {
+        // Delay each line to allow the emulator to process them sequentially
+        setTimeout(() => {
+          typeCommand(line);
+        }, index * 100); // 100ms delay between lines
+      });
       setState((prev) => ({ ...prev, currentSoftware: entry.id }));
     } else {
       emu.loadSoftware(entry);

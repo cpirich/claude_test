@@ -54,10 +54,10 @@ describe("detectFormat", () => {
     expect(detectFormat(plainText)).toBe("trs80-bas");
   });
 
-  it("requires at least 2 BASIC lines for plain text detection", () => {
+  it("detects plain text BASIC even with a single line", () => {
     const singleLine = "10 PRINT \"HELLO\"";
-    // Single line is not enough - should fall back to binary
-    expect(detectFormat(singleLine)).toBe("binary");
+    // Single line with valid BASIC keyword should be detected
+    expect(detectFormat(singleLine)).toBe("trs80-bas");
   });
 
   it("does not detect as BASIC if line lacks keywords", () => {

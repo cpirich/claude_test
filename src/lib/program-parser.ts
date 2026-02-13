@@ -66,9 +66,14 @@ export function detectFormat(data: Uint8Array | string): ProgramFileFormat {
     if (trimmed.length === 0) continue;
 
     // Check if line starts with a number followed by BASIC keywords
-    if (/^\d+\s+(PRINT|REM|GOTO|FOR|NEXT|IF|THEN|END|CLS|INPUT|LET|DIM|DATA|READ|GOSUB|RETURN|POKE|PEEK|CLEAR|NEW|RUN|LIST)/i.test(trimmed)) {
+    // Match the behavior of isPlainTextBASIC in trs80-bas-parser.ts
+    if (/^\d+\s+(PRINT|REM|GOTO|FOR|NEXT|IF|THEN|END|CLS|INPUT|LET|DIM|DATA|READ|GOSUB|RETURN|POKE|PEEK|CLEAR|NEW|RUN|LIST|STOP|RESTORE|ON|LOAD|SAVE|CONT|DELETE|AUTO|TAB|INKEY|RANDOM|SET|RESET|CMD|ONERROR|LPRINT|DEF|OUT|OPEN|CLOSE|FIELD|GET|PUT|LINE|EDIT|ERROR|RESUME|MERGE|NAME|KILL|LSET|RSET|SYSTEM)/i.test(trimmed)) {
       basicLineCount++;
-      if (basicLineCount >= 2) return "trs80-bas"; // Found multiple BASIC lines
+      if (basicLineCount >= 1) return "trs80-bas"; // Found at least 1 valid BASIC line
+    } else if (/^\d+$/.test(trimmed)) {
+      // Allow lines with just numbers (empty lines in BASIC)
+      basicLineCount++;
+      if (basicLineCount >= 1) return "trs80-bas";
     }
   }
 
