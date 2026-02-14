@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TerminalDisplay } from "../TerminalDisplay";
+import { trs80CharToDisplay } from "@/emulator/trs80/video";
 
 // Mock the emulator hooks
 const mockApple1State = {
@@ -23,6 +24,7 @@ vi.mock("@/hooks/useApple1", () => ({
 
 const mockTrs80State = {
   lines: Array(16).fill(" ".repeat(64)),
+  screenCodes: Array.from({ length: 16 }, () => new Array(64).fill(0x20)),
   cursorCol: 0,
   cursorRow: 0,
 };
@@ -289,6 +291,62 @@ describe("TerminalDisplay", () => {
       const { container } = render(<TerminalDisplay machine="trs80" />);
       const visibleCursor = container.querySelector(".trs80-cursor.bg-white");
       expect(visibleCursor).toBeTruthy();
+    });
+  });
+
+  describe("TRS-80 semigraphic rendering", () => {
+    function makeState(codes: number[], row: number = 0) {
+      const lines = Array(16).fill(" ".repeat(64));
+      const screenCodes = Array.from({ length: 16 }, () => new Array(64).fill(0x20));
+      // Build the display line from the codes
+      lines[row] = codes.map(c => trs80CharToDisplay(c)).join("").padEnd(64);
+      screenCodes[row] = [...codes, ...new Array(64 - codes.length).fill(0x20)];
+      return { lines, screenCodes, cursorCol: 0, cursorRow: 15 };
+    }
+
+    it("renders semigraphic characters as spans with trs80-semigfx class", () => {
+      // 0xBF = all 6 blocks lit (full block)
+      mockTrs80Hook.state = makeState([0xBF, 0x20, 0xBF]);
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const semigfxSpans = container.querySelectorAll(".trs80-semigfx");
+      expect(semigfxSpans.length).toBe(2);
+    });
+
+    it("applies background style to non-empty semigraphic characters", () => {
+      // 0x81 = only top-left block lit (bit 0)
+      mockTrs80Hook.state = makeState([0x81]);
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const span = container.querySelector(".trs80-semigfx") as HTMLElement;
+      expect(span).toBeTruthy();
+      expect(span.style.background).toContain("linear-gradient");
+    });
+
+    it("does not render semigfx spans for text-only rows", () => {
+      // All standard ASCII — no semigraphic spans needed
+      mockTrs80Hook.state = makeState([0x41, 0x42, 0x43]); // A B C
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const semigfxSpans = container.querySelectorAll(".trs80-semigfx");
+      expect(semigfxSpans.length).toBe(0);
+    });
+
+    it("renders text and semigraphics on the same row", () => {
+      // Mix: 'H' (0x48), full block (0xBF), 'I' (0x49)
+      mockTrs80Hook.state = makeState([0x48, 0xBF, 0x49]);
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      const pre = container.querySelector("pre.trs80-terminal")!;
+      // Should have text content "H" and "I" plus a semigraphic span
+      expect(pre.textContent).toContain("H");
+      expect(pre.textContent).toContain("I");
+      expect(container.querySelectorAll(".trs80-semigfx").length).toBe(1);
+    });
+
+    it("renders empty semigraphic ($80) as space without a span", () => {
+      // 0x80 = empty block (all bits clear) — should render as space, not a span
+      mockTrs80Hook.state = makeState([0xBF, 0x80, 0xBF]);
+      const { container } = render(<TerminalDisplay machine="trs80" />);
+      // Only the two non-empty semigraphics should be spans
+      const semigfxSpans = container.querySelectorAll(".trs80-semigfx");
+      expect(semigfxSpans.length).toBe(2);
     });
   });
 });

@@ -380,7 +380,13 @@ export class Z80 {
 
   irq(data: number = 0xff): void {
     if (!this.iff1) return;
-    this.halted = false;
+    // When waking from HALT, advance PC past the HALT instruction.
+    // HALT decrements PC to point at itself (for NOP re-execution),
+    // but the interrupt return address must be the next instruction.
+    if (this.halted) {
+      this.pc = (this.pc + 1) & 0xffff;
+      this.halted = false;
+    }
     this.iff1 = this.iff2 = false;
 
     switch (this.im) {
@@ -407,16 +413,17 @@ export class Z80 {
 
   // --- Execute single instruction ---
   step(): number {
+    // Handle delayed EI — must run before the HALT check so that
+    // EI followed by HALT properly enables interrupts during the halt.
+    if (this.eiPending) {
+      this.iff1 = this.iff2 = true;
+      this.eiPending = false;
+    }
+
     if (this.halted) {
       this.cycles += 4;
       this.r = (this.r & 0x80) | ((this.r + 1) & 0x7f);
       return 4;
-    }
-
-    // Handle delayed EI
-    if (this.eiPending) {
-      this.iff1 = this.iff2 = true;
-      this.eiPending = false;
     }
 
     const startCycles = this.cycles;
