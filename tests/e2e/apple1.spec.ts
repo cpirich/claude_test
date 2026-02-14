@@ -6,7 +6,6 @@ import {
   typeCommand,
   typeInTerminal,
   clickReset,
-  getTerminal,
 } from './helpers';
 
 test.describe('Apple I Emulator', () => {

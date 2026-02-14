@@ -9,7 +9,6 @@ import {
   typeProgram,
   typeInTerminal,
   clickReset,
-  getTerminal,
 } from './helpers';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures', 'roms');

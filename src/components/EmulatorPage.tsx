@@ -34,11 +34,12 @@ function TerminalSkeleton() {
   );
 }
 
-type Machine = "apple1" | "trs80";
+type Machine = "apple1" | "trs80" | "altair8800";
 
 const MACHINES: Record<Machine, { label: string; spec: string }> = {
   apple1: { label: "Apple I", spec: "6502 @ 1.023 MHz \u00b7 40\u00d724" },
   trs80: { label: "TRS-80 Model I", spec: "Z80 @ 1.774 MHz \u00b7 64\u00d716" },
+  altair8800: { label: "Altair 8800", spec: "8080 @ 2 MHz \u00b7 80\u00d724 + Panel" },
 };
 
 interface EmulatorPageProps {

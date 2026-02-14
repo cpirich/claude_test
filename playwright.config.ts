@@ -25,7 +25,7 @@ export default defineConfig({
     // CI: serve pre-built static export for deterministic, fast startup.
     // Local: use dev server for HMR.
     command: process.env.CI
-      ? 'npx serve out -l 3000'
+      ? 'serve out -l 3000'
       : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,

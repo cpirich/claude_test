@@ -3,7 +3,7 @@ import {
   CpuState,
   AddressingMode,
   Instruction,
-  FLAG_C, FLAG_Z, FLAG_I, FLAG_D, FLAG_B, FLAG_U, FLAG_V, FLAG_N,
+  FLAG_Z, FLAG_I, FLAG_B, FLAG_U, FLAG_N,
 } from './types';
 import { buildOpcodeTable } from './opcodes';
 

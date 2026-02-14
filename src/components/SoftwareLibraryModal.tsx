@@ -47,6 +47,12 @@ const FORMAT_LABELS: Record<FormatOption, string> = {
   "trs80-cmd": "CMD",
 };
 
+const MACHINE_FORMATS: Record<MachineType, FormatOption[]> = {
+  apple1: ["auto", "binary", "intel-hex", "woz-hex-dump"],
+  trs80: ["auto", "binary", "intel-hex", "trs80-bas", "trs80-cmd"],
+  altair8800: ["auto", "binary", "intel-hex"],
+};
+
 function formatSize(bytes: number): string {
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}KB`;
   if (bytes === 0) return "?";
@@ -404,7 +410,7 @@ function ZipFilePicker({
 
 // ─── URL TAB ─────────────────────────────────────────────
 
-function UrlTab({ onLoad }: { onLoad: (entry: SoftwareEntry) => void }) {
+function UrlTab({ onLoad, machine }: { onLoad: (entry: SoftwareEntry) => void; machine: MachineType }) {
   const [url, setUrl] = useState("");
   const [format, setFormat] = useState<FormatOption>("auto");
   const [loadAddress, setLoadAddress] = useState(0x0300);
@@ -508,7 +514,7 @@ function UrlTab({ onLoad }: { onLoad: (entry: SoftwareEntry) => void }) {
       <div>
         <label className="text-xs text-terminal-border block mb-1">FORMAT:</label>
         <div className="flex gap-1 flex-wrap">
-          {(Object.keys(FORMAT_LABELS) as FormatOption[]).map((f) => (
+          {MACHINE_FORMATS[machine].map((f) => (
             <ToggleButton key={f} active={format === f} onClick={() => setFormat(f)}>
               {FORMAT_LABELS[f]}
             </ToggleButton>
@@ -556,7 +562,7 @@ function UrlTab({ onLoad }: { onLoad: (entry: SoftwareEntry) => void }) {
 
 // ─── FILE TAB ────────────────────────────────────────────
 
-function FileTab({ onLoad }: { onLoad: (entry: SoftwareEntry) => void }) {
+function FileTab({ onLoad, machine }: { onLoad: (entry: SoftwareEntry) => void; machine: MachineType }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [format, setFormat] = useState<FormatOption>("auto");
   const [loadAddress, setLoadAddress] = useState(0x0300);
@@ -680,7 +686,7 @@ function FileTab({ onLoad }: { onLoad: (entry: SoftwareEntry) => void }) {
       <div>
         <label className="text-xs text-terminal-border block mb-1">FORMAT:</label>
         <div className="flex gap-1 flex-wrap">
-          {(Object.keys(FORMAT_LABELS) as FormatOption[]).map((f) => (
+          {MACHINE_FORMATS[machine].map((f) => (
             <ToggleButton key={f} active={format === f} onClick={() => setFormat(f)}>
               {FORMAT_LABELS[f]}
             </ToggleButton>
@@ -711,7 +717,7 @@ export function SoftwareLibraryModal({
   onClose,
   onLoad,
   catalog,
-  machine: _machine,
+  machine,
 }: SoftwareLibraryModalProps) {
   const [activeTab, setActiveTab] = useState<TopTab>("browse");
 
@@ -788,8 +794,8 @@ export function SoftwareLibraryModal({
           {activeTab === "browse" && (
             <BrowseTab catalog={catalog} onLoad={onLoad} />
           )}
-          {activeTab === "url" && <UrlTab onLoad={onLoad} />}
-          {activeTab === "file" && <FileTab onLoad={onLoad} />}
+          {activeTab === "url" && <UrlTab onLoad={onLoad} machine={machine} />}
+          {activeTab === "file" && <FileTab onLoad={onLoad} machine={machine} />}
         </div>
       </div>
     </div>

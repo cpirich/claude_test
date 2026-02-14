@@ -283,16 +283,24 @@ describe("SoftwareLibraryModal", () => {
       expect(screen.getByText("HEX")).toBeInTheDocument();
     });
 
-    it("shows BAS format option in format selectors", () => {
-      render(<SoftwareLibraryModal {...defaultProps} />);
+    it("shows BAS format option in format selectors for TRS-80", () => {
+      render(<SoftwareLibraryModal {...defaultProps} machine="trs80" />);
       fireEvent.click(screen.getByText("URL"));
       expect(screen.getByText("BAS")).toBeInTheDocument();
     });
 
-    it("shows CMD format option in format selectors", () => {
-      render(<SoftwareLibraryModal {...defaultProps} />);
+    it("shows CMD format option in format selectors for TRS-80", () => {
+      render(<SoftwareLibraryModal {...defaultProps} machine="trs80" />);
       fireEvent.click(screen.getByText("URL"));
       expect(screen.getByText("CMD")).toBeInTheDocument();
+    });
+
+    it("hides TRS-80 formats for Apple I", () => {
+      render(<SoftwareLibraryModal {...defaultProps} machine="apple1" />);
+      fireEvent.click(screen.getByText("URL"));
+      expect(screen.queryByText("BAS")).not.toBeInTheDocument();
+      expect(screen.queryByText("CMD")).not.toBeInTheDocument();
+      expect(screen.getByText("WOZ")).toBeInTheDocument();
     });
 
     it("disables FETCH & LOAD when URL is empty", () => {

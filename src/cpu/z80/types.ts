@@ -76,10 +76,10 @@ export const FLAG_S  = 0x80; // Sign
 
 /** No-op I/O bus for testing — returns 0xFF on all reads. */
 export class NullIOBus implements IOBus {
-  in(_port: number): number {
+  in(): number {
     return 0xff;
   }
-  out(_port: number, _value: number): void {
+  out(): void {
     // no-op
   }
 }

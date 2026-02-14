@@ -141,8 +141,6 @@ describe('Level I BASIC', () => {
       typeKey(system, 'A');
 
       // Check video RAM for the letter A somewhere
-      const lines = getScreenLines(system);
-      const hasA = lines.some(l => l.includes('A') && !l.includes('READY'));
       // Note: Level I BASIC may display differently than stub ROM
       // Just verify the system doesn't crash
       expect(system.isHalted()).toBe(false);
@@ -162,9 +160,6 @@ describe('Level I BASIC', () => {
       typeKey(system, 'ENTER');
       runCycles(system, 200_000);
 
-      const lines = getScreenLines(system);
-      // Should contain "42" somewhere in the output
-      const has42 = lines.some(l => l.includes('42'));
       // Don't assert too strongly — the display format may vary
       expect(system.isHalted()).toBe(false);
     });
