@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TRS80Video, VIDEO_BASE, VIDEO_END, VIDEO_COLS, VIDEO_ROWS, VIDEO_SIZE } from '../video';
+import { TRS80Video, VIDEO_BASE, VIDEO_END, VIDEO_COLS, VIDEO_ROWS, VIDEO_SIZE, trs80CharToDisplay } from '../video';
 
 describe('TRS80Video', () => {
   let video: TRS80Video;
@@ -205,6 +205,74 @@ describe('TRS80Video', () => {
 
       video.read(0x3c00);
       expect(called).toBe(false);
+    });
+  });
+});
+
+describe('trs80CharToDisplay', () => {
+  describe('ASCII text ranges', () => {
+    it('passes through standard printable ASCII ($20-$5F)', () => {
+      expect(trs80CharToDisplay(0x20)).toBe(' ');
+      expect(trs80CharToDisplay(0x41)).toBe('A');
+      expect(trs80CharToDisplay(0x30)).toBe('0');
+      expect(trs80CharToDisplay(0x5f)).toBe('_');
+    });
+
+    it('maps $00-$1F to uppercase letters (@ A-Z symbols)', () => {
+      expect(trs80CharToDisplay(0x00)).toBe('@');
+      expect(trs80CharToDisplay(0x01)).toBe('A');
+      expect(trs80CharToDisplay(0x1a)).toBe('Z');
+    });
+
+    it('maps $60-$7F to $20-$3F (no lowercase on stock Model I)', () => {
+      expect(trs80CharToDisplay(0x60)).toBe(' ');
+      expect(trs80CharToDisplay(0x61)).toBe('!');
+      expect(trs80CharToDisplay(0x7a)).toBe(':');
+    });
+  });
+
+  describe('inverse video ($C0-$FF)', () => {
+    it('maps $C0-$DF to uppercase letters', () => {
+      expect(trs80CharToDisplay(0xc0)).toBe('@');
+      expect(trs80CharToDisplay(0xc1)).toBe('A');
+      expect(trs80CharToDisplay(0xda)).toBe('Z');
+    });
+
+    it('maps $E0-$FF to space/digits/punctuation', () => {
+      expect(trs80CharToDisplay(0xe0)).toBe(' ');
+      expect(trs80CharToDisplay(0xf0)).toBe('0');
+      expect(trs80CharToDisplay(0xf9)).toBe('9');
+    });
+  });
+
+  describe('semigraphic block characters ($80-$BF)', () => {
+    it('returns space for empty block ($80, all bits clear)', () => {
+      expect(trs80CharToDisplay(0x80)).toBe(' ');
+    });
+
+    it('returns full block for all bits set ($BF)', () => {
+      expect(trs80CharToDisplay(0xbf)).toBe('\u2588');
+    });
+
+    it('returns Unicode shade characters for partial blocks', () => {
+      // Single bit set (1 of 6 lit)
+      const oneBlock = trs80CharToDisplay(0x81); // bit 0 only
+      expect(oneBlock).toMatch(/[\u2591\u2592\u2593]/);
+
+      // Most bits set (5 of 6 lit)
+      const fiveBlocks = trs80CharToDisplay(0xbe); // bits 0-4 set, bit 5 clear
+      expect(fiveBlocks).toMatch(/[\u2591\u2592\u2593]/);
+    });
+
+    it('extracts only lower 6 bits for the pattern', () => {
+      // $80 = 10_000000 → bits = 0x00 → space
+      expect(trs80CharToDisplay(0x80)).toBe(' ');
+      // $BF = 10_111111 → bits = 0x3F → full block
+      expect(trs80CharToDisplay(0xbf)).toBe('\u2588');
+      // $A5 = 10_100101 → bits = 0x25 → partial
+      const partial = trs80CharToDisplay(0xa5);
+      expect(partial).not.toBe(' ');
+      expect(partial).not.toBe('\u2588');
     });
   });
 });

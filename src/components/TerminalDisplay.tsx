@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback, useImperativeHandle } from "react";
+import { useRef, useEffect, useState, useCallback, useImperativeHandle, type CSSProperties, type ReactNode } from "react";
 import { useApple1 } from "@/hooks/useApple1";
 import { useTrs80 } from "@/hooks/useTrs80";
 import { useAltair8800 } from "@/hooks/useAltair8800";
@@ -10,6 +10,113 @@ import { getFullCatalog } from "@/emulator/apple1/software-catalog";
 import { getTrs80FullCatalog } from "@/emulator/trs80/software-catalog";
 import { getAltairFullCatalog } from "@/emulator/altair8800/software-catalog";
 import type { SoftwareEntry } from "@/emulator/apple1/software-library";
+
+/**
+ * Pre-computed CSS styles for TRS-80 2×3 block semigraphics (codes $80-$BF).
+ * Each character has 6 pixel blocks in a 2×3 grid controlled by bits 0-5:
+ *   bit0=TL, bit1=TR, bit2=ML, bit3=MR, bit4=BL, bit5=BR
+ * Rendered via CSS background gradients on inline-block spans.
+ */
+const SEMIGFX_STYLES: (CSSProperties | null)[] = (() => {
+  const styles: (CSSProperties | null)[] = new Array(64);
+  for (let bits = 0; bits < 64; bits++) {
+    if (bits === 0) { styles[bits] = null; continue; }
+    const layers: string[] = [];
+    for (let b = 0; b < 6; b++) {
+      if (bits & (1 << b)) {
+        // CSS background-position percentages are relative to (container - image) size,
+        // not absolute offsets. For a 50%-wide image: 0% → left edge, 100% → right edge.
+        // For a 34%-tall image: 0% → top, 50% → middle (actual 33%), 100% → bottom (actual 66%).
+        const x = b & 1 ? '100%' : '0%';
+        const y = ['0%', '50%', '100%'][b >> 1];
+        layers.push(`linear-gradient(currentColor,currentColor) ${x} ${y}/50% 34% no-repeat`);
+      }
+    }
+    styles[bits] = { background: layers.join(',') };
+  }
+  return styles;
+})();
+
+/**
+ * Render a TRS-80 display row, handling 2×3 block semigraphics as CSS spans.
+ * Text-only rows return a plain string (fast path). Rows with semigraphics
+ * (codes $80-$BF) return React elements with per-character rendering.
+ */
+function renderTrs80Row(
+  codes: number[],
+  displayLine: string,
+  isCursorRow: boolean,
+  cursorCol: number,
+  cursorVisible: boolean,
+  showCursor: boolean,
+): ReactNode {
+  const hasSemigfx = codes.some(c => c >= 0x80 && c <= 0xBF);
+
+  // Fast path: no semigraphics, use plain text rendering
+  if (!hasSemigfx) {
+    if (isCursorRow && showCursor) {
+      return (
+        <>
+          {displayLine.substring(0, cursorCol)}
+          {cursorVisible ? (
+            <span className="trs80-cursor bg-white text-terminal-bg">
+              {displayLine.charAt(cursorCol) || " "}
+            </span>
+          ) : (
+            <span className="trs80-cursor">{displayLine.charAt(cursorCol) || " "}</span>
+          )}
+          {displayLine.substring(cursorCol + 1)}
+        </>
+      );
+    }
+    return displayLine;
+  }
+
+  // Semigraphic path: render character by character, grouping text runs
+  const elements: ReactNode[] = [];
+  let textRun = '';
+
+  const flushText = () => {
+    if (textRun) {
+      elements.push(textRun);
+      textRun = '';
+    }
+  };
+
+  for (let col = 0; col < codes.length; col++) {
+    const code = codes[col];
+    const isCursorPos = isCursorRow && showCursor && col === cursorCol;
+
+    if (code >= 0x80 && code <= 0xBF) {
+      flushText();
+      const bits = code & 0x3F;
+      if (isCursorPos && cursorVisible) {
+        elements.push(<span key={col} className="trs80-cursor bg-white text-terminal-bg">{' '}</span>);
+      } else if (bits === 0) {
+        // Empty semigraphic = space
+        textRun += ' ';
+      } else {
+        elements.push(<span key={col} className="trs80-semigfx" style={SEMIGFX_STYLES[bits]!} />);
+      }
+    } else {
+      // Regular text character
+      if (isCursorPos) {
+        flushText();
+        const ch = displayLine.charAt(col) || ' ';
+        elements.push(
+          cursorVisible
+            ? <span key={col} className="trs80-cursor bg-white text-terminal-bg">{ch}</span>
+            : <span key={col} className="trs80-cursor">{ch}</span>
+        );
+      } else {
+        textRun += displayLine.charAt(col);
+      }
+    }
+  }
+  flushText();
+
+  return <>{elements}</>;
+}
 
 export interface TerminalHandle {
   typeCommand: (cmd: string) => void;
@@ -271,7 +378,7 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
   // Expose typeCommand via ref
   useImperativeHandle(terminalHandleRef, () => ({ typeCommand }), [typeCommand]);
 
-  const { lines, cursorRow, cursorCol } = state;
+  const { lines, screenCodes, cursorRow, cursorCol } = state;
   const cols = TERMINAL_COLS.trs80;
   const rows = TERMINAL_ROWS.trs80;
 
@@ -423,20 +530,13 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
       >
         {displayLines.map((line: string, i: number) => (
           <div key={i}>
-            {i === cursorRow && showCursor ? (
-              <>
-                {line.substring(0, cursorCol)}
-                {cursorVisible ? (
-                  <span className="trs80-cursor bg-white text-terminal-bg">
-                    {line.charAt(cursorCol) || " "}
-                  </span>
-                ) : (
-                  <span className="trs80-cursor">{line.charAt(cursorCol) || " "}</span>
-                )}
-                {line.substring(cursorCol + 1)}
-              </>
-            ) : (
-              line
+            {renderTrs80Row(
+              screenCodes[i] || [],
+              line,
+              i === cursorRow,
+              cursorCol,
+              cursorVisible,
+              showCursor,
             )}
           </div>
         ))}

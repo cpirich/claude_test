@@ -196,6 +196,14 @@ body {
   min-width: 1ch;
 }
 
+/* TRS-80 2×3 block semigraphics ($80-$BF) — rendered as inline blocks with CSS gradients */
+.trs80-semigfx {
+  display: inline-block;
+  width: 1ch;
+  height: 1em;
+  vertical-align: top;
+}
+
 /* --- Altair 8800 CRT Effects (green P1 phosphor, Beehive B100 style) --- */
 
 .altair-screen {

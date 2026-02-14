@@ -12,6 +12,7 @@ const CYCLES_PER_FRAME = Math.round(1_774_000 / 60);
 
 export interface Trs80State {
   lines: string[];
+  screenCodes: number[][];
   cursorCol: number;
   cursorRow: number;
   currentSoftware: string | null;
@@ -81,6 +82,7 @@ export function useTrs80() {
   const rafRef = useRef<number>(0);
   const [state, setState] = useState<Trs80State>({
     lines: Array(VIDEO_ROWS).fill(" ".repeat(VIDEO_COLS)),
+    screenCodes: Array.from({ length: VIDEO_ROWS }, () => new Array(VIDEO_COLS).fill(0x20)),
     cursorCol: 0,
     cursorRow: 0,
     currentSoftware: null,
@@ -99,11 +101,12 @@ export function useTrs80() {
       if (!running) return;
       emu.run(CYCLES_PER_FRAME);
 
-      // Read video RAM as lines for display
+      // Read video RAM as lines for display and raw codes for semigraphics
       const lines: string[] = [];
       for (let row = 0; row < VIDEO_ROWS; row++) {
         lines.push(emu.video.getRow(row));
       }
+      const screenCodes = emu.video.getScreen();
 
       // Derive cursor position: try ROM cursor pointer at $4000 first,
       // fall back to last video write position (works for any ROM)
@@ -131,6 +134,7 @@ export function useTrs80() {
       setState((prev) => ({
         ...prev,
         lines,
+        screenCodes,
         cursorCol: finalCol,
         cursorRow: finalRow,
       }));

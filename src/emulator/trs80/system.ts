@@ -120,15 +120,32 @@ export class TRS80System {
    * Run the CPU for a specified number of cycles. Returns actual cycles.
    * Generates timer interrupts at ~40 Hz intervals and advances the
    * keyboard buffer state machine.
+   *
+   * When the CPU is halted (HALT instruction), it idles until an interrupt
+   * wakes it up. The loop fast-forwards to the next interrupt boundary
+   * so EI + HALT sequences don't stall the emulator.
    */
   run(cycles: number): number {
     let total = 0;
-    while (total < cycles && !this.cpu.halted) {
-      const stepCycles = this.cpu.step();
-      total += stepCycles;
-      this.cyclesSinceInterrupt += stepCycles;
-      this.keyboard.tick(stepCycles);
-      this.checkTimerInterrupt();
+    while (total < cycles) {
+      if (this.cpu.halted) {
+        // CPU is halted — fast-forward to the next interrupt boundary.
+        // On real hardware the CPU NOPs until an interrupt arrives.
+        const toInterrupt = CYCLES_PER_INTERRUPT - this.cyclesSinceInterrupt;
+        const delta = Math.min(toInterrupt, cycles - total);
+        total += delta;
+        this.cyclesSinceInterrupt += delta;
+        this.keyboard.tick(delta);
+        this.checkTimerInterrupt();
+        // If still halted (interrupts disabled or not yet delivered), stop
+        if (this.cpu.halted) break;
+      } else {
+        const stepCycles = this.cpu.step();
+        total += stepCycles;
+        this.cyclesSinceInterrupt += stepCycles;
+        this.keyboard.tick(stepCycles);
+        this.checkTimerInterrupt();
+      }
     }
     return total;
   }

@@ -253,6 +253,147 @@ describe('TRS80System', () => {
     });
   });
 
+  describe('KEYIN routine ($0049)', () => {
+    it('should return ASCII code for a letter key via CALL $0049', () => {
+      // Load stub ROM and a small ML program that calls KEYIN
+      system.loadROM(TRS80_STUB_ROM);
+      system.reset();
+
+      // Program at $5000:
+      //   LD SP,$FFFF
+      //   CALL $0049    ; KEYIN — blocks until key, returns ASCII in A
+      //   LD ($3C00),A  ; write result to video RAM
+      //   HALT
+      const prog = [
+        0x31, 0xff, 0xff, // LD SP,$FFFF
+        0xcd, 0x49, 0x00, // CALL $0049
+        0x32, 0x00, 0x3c, // LD ($3C00),A
+        0x76,             // HALT
+      ];
+      for (let i = 0; i < prog.length; i++) {
+        system.memory.write(0x5000 + i, prog[i]);
+      }
+      system.cpu.pc = 0x5000;
+
+      // Run a bit to reach the polling loop inside KEYIN
+      system.run(1000);
+
+      // Press 'W' (row 2, bit 7 → ASCII $57)
+      system.keyDown('W');
+      system.run(5_000);
+      system.keyUp('W');
+      system.run(55_000);
+
+      expect(system.isHalted()).toBe(true);
+      expect(system.video.read(0x3c00)).toBe(0x57); // 'W'
+    });
+
+    it('should return $0D for ENTER key via CALL $0049', () => {
+      system.loadROM(TRS80_STUB_ROM);
+      system.reset();
+
+      const prog = [
+        0x31, 0xff, 0xff,
+        0xcd, 0x49, 0x00,
+        0x32, 0x00, 0x3c,
+        0x76,
+      ];
+      for (let i = 0; i < prog.length; i++) {
+        system.memory.write(0x5000 + i, prog[i]);
+      }
+      system.cpu.pc = 0x5000;
+
+      system.run(1000);
+      system.keyDown('ENTER');
+      system.run(5_000);
+      system.keyUp('ENTER');
+      system.run(55_000);
+
+      expect(system.isHalted()).toBe(true);
+      expect(system.video.read(0x3c00)).toBe(0x0d);
+    });
+
+    it('should return $20 for SPACE key via CALL $0049', () => {
+      system.loadROM(TRS80_STUB_ROM);
+      system.reset();
+
+      const prog = [
+        0x31, 0xff, 0xff,
+        0xcd, 0x49, 0x00,
+        0x32, 0x00, 0x3c,
+        0x76,
+      ];
+      for (let i = 0; i < prog.length; i++) {
+        system.memory.write(0x5000 + i, prog[i]);
+      }
+      system.cpu.pc = 0x5000;
+
+      system.run(1000);
+      system.keyDown('SPACE');
+      system.run(5_000);
+      system.keyUp('SPACE');
+      system.run(55_000);
+
+      expect(system.isHalted()).toBe(true);
+      expect(system.video.read(0x3c00)).toBe(0x20);
+    });
+
+    it('should preserve caller registers across KEYIN call', () => {
+      system.loadROM(TRS80_STUB_ROM);
+      system.reset();
+
+      // Program at $5000:
+      //   LD SP,$FFFF
+      //   LD BC,$1234
+      //   LD DE,$5678
+      //   LD HL,$9ABC
+      //   CALL $0049    ; KEYIN — should preserve BC, DE, HL
+      //   LD ($3C00),A  ; save result
+      //   ; Now verify BC, DE, HL are preserved by writing them to video RAM
+      //   LD A,B : LD ($3C01),A
+      //   LD A,C : LD ($3C02),A
+      //   LD A,D : LD ($3C03),A
+      //   LD A,E : LD ($3C04),A
+      //   LD A,H : LD ($3C05),A
+      //   LD A,L : LD ($3C06),A
+      //   HALT
+      const prog = [
+        0x31, 0xff, 0xff,       // LD SP,$FFFF
+        0x01, 0x34, 0x12,       // LD BC,$1234
+        0x11, 0x78, 0x56,       // LD DE,$5678
+        0x21, 0xbc, 0x9a,       // LD HL,$9ABC
+        0xcd, 0x49, 0x00,       // CALL $0049
+        0x32, 0x00, 0x3c,       // LD ($3C00),A
+        0x78, 0x32, 0x01, 0x3c, // LD A,B : LD ($3C01),A
+        0x79, 0x32, 0x02, 0x3c, // LD A,C : LD ($3C02),A
+        0x7a, 0x32, 0x03, 0x3c, // LD A,D : LD ($3C03),A
+        0x7b, 0x32, 0x04, 0x3c, // LD A,E : LD ($3C04),A
+        0x7c, 0x32, 0x05, 0x3c, // LD A,H : LD ($3C05),A
+        0x7d, 0x32, 0x06, 0x3c, // LD A,L : LD ($3C06),A
+        0x76,                    // HALT
+      ];
+      for (let i = 0; i < prog.length; i++) {
+        system.memory.write(0x5000 + i, prog[i]);
+      }
+      system.cpu.pc = 0x5000;
+
+      system.run(1000);
+      system.keyDown('A');
+      system.run(5_000);
+      system.keyUp('A');
+      system.run(55_000);
+
+      expect(system.isHalted()).toBe(true);
+      expect(system.video.read(0x3c00)).toBe(0x41); // 'A' returned
+      expect(system.video.read(0x3c01)).toBe(0x12); // B preserved
+      expect(system.video.read(0x3c02)).toBe(0x34); // C preserved
+      expect(system.video.read(0x3c03)).toBe(0x56); // D preserved
+      expect(system.video.read(0x3c04)).toBe(0x78); // E preserved
+      expect(system.video.read(0x3c05)).toBe(0x9a); // H preserved
+      expect(system.video.read(0x3c06)).toBe(0xbc); // L preserved
+    });
+  });
+
   describe('component access', () => {
     it('should expose CPU, memory, keyboard, and video', () => {
       expect(system.cpu).toBeDefined();
@@ -391,6 +532,7 @@ describe('TRS80System', () => {
       rom[p++] = 0x23;                                     // INC HL
       rom[p++] = 0x0c;                                     // INC C
       rom[p++] = 0x10; rom[p++] = 0xfb;                   // DJNZ $000D (loop)
+      rom[p++] = 0xf3;                                     // DI — prevent HALT from being woken
       rom[p++] = 0x76;                                     // HALT
 
       system.loadROM(rom);
@@ -403,6 +545,98 @@ describe('TRS80System', () => {
       for (let i = 0; i < 10; i++) {
         expect(system.video.read(0x3c00 + i)).toBe(i + 1);
       }
+    });
+
+    it('should survive interrupts with stub ROM ISR', () => {
+      // Verify that the stub ROM's ISR at $0038 properly handles
+      // timer interrupts. An ML program loads into RAM, enables
+      // interrupts, and writes to video RAM. Without a valid ISR,
+      // the CPU would jump to garbage at $0038 and crash.
+      system.loadROM(TRS80_STUB_ROM);
+      system.reset();
+
+      // Write a small ML program at $5000 that:
+      //   LD SP,$FFFF
+      //   IM 1          ; interrupt mode 1 (RST $38)
+      //   EI            ; enable interrupts
+      //   LD HL,$3C00   ; video RAM
+      //   LD B,10
+      //   LD C,$41      ; 'A'
+      // loop:
+      //   LD (HL),C     ; write char
+      //   INC HL
+      //   INC C
+      //   DJNZ loop
+      //   HALT
+      const prog = [
+        0x31, 0xff, 0xff, // LD SP,$FFFF
+        0xed, 0x56,       // IM 1
+        0xfb,             // EI
+        0x21, 0x00, 0x3c, // LD HL,$3C00
+        0x06, 0x0a,       // LD B,10
+        0x0e, 0x41,       // LD C,$41 ('A')
+        // loop at offset 13:
+        0x71,             // LD (HL),C
+        0x23,             // INC HL
+        0x0c,             // INC C
+        0x10, 0xfb,       // DJNZ loop
+        0xf3,             // DI — prevent HALT from being woken
+        0x76,             // HALT
+      ];
+      for (let i = 0; i < prog.length; i++) {
+        system.memory.write(0x5000 + i, prog[i]);
+      }
+      system.cpu.pc = 0x5000;
+
+      // Run enough cycles for multiple timer interrupts to fire
+      system.run(200_000);
+
+      expect(system.isHalted()).toBe(true);
+      // Verify all 10 characters written: A B C D E F G H I J
+      for (let i = 0; i < 10; i++) {
+        expect(system.video.read(0x3c00 + i)).toBe(0x41 + i);
+      }
+    });
+
+    it('should handle EI + HALT wake-up with stub ROM ISR', () => {
+      // ML programs often use EI + HALT to wait for the next interrupt.
+      // The ISR at $0038 must properly return so the program continues.
+      system.loadROM(TRS80_STUB_ROM);
+      system.reset();
+
+      // Program at $5000:
+      //   LD SP,$FFFF
+      //   IM 1
+      //   LD A,$42      ; 'B'
+      //   LD ($3C00),A  ; write before HALT
+      //   EI
+      //   HALT          ; wait for interrupt
+      //   LD A,$43      ; 'C' — should execute after ISR returns
+      //   LD ($3C01),A
+      //   HALT          ; done
+      const prog = [
+        0x31, 0xff, 0xff, // LD SP,$FFFF
+        0xed, 0x56,       // IM 1
+        0x3e, 0x42,       // LD A,$42
+        0x32, 0x00, 0x3c, // LD ($3C00),A
+        0xfb,             // EI
+        0x76,             // HALT — CPU sleeps until interrupt
+        0x3e, 0x43,       // LD A,$43
+        0x32, 0x01, 0x3c, // LD ($3C01),A
+        0xf3,             // DI — prevent final HALT from being woken
+        0x76,             // HALT — final stop
+      ];
+      for (let i = 0; i < prog.length; i++) {
+        system.memory.write(0x5000 + i, prog[i]);
+      }
+      system.cpu.pc = 0x5000;
+
+      // Run enough for the timer interrupt to wake up the HALT
+      system.run(200_000);
+
+      // 'B' was written before HALT, 'C' after the ISR returned
+      expect(system.video.read(0x3c00)).toBe(0x42);
+      expect(system.video.read(0x3c01)).toBe(0x43);
     });
 
     it('should display string written via LDIR block copy', () => {

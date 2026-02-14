@@ -144,13 +144,52 @@ describe("parseTRS80CMD", () => {
     expect(() => parseTRS80CMD(cmd)).toThrow("unknown record type 03");
   });
 
-  test("throws error on data block with length less than 2", () => {
+  test("handles length byte of 2 (wraps to 258: 256 data bytes)", () => {
+    // Length byte 2 wraps to 258 (2 + 256), meaning 256 data bytes
+    const dataBytes = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) {
+      dataBytes[i] = i & 0xff;
+    }
+
     const cmd = new Uint8Array([
-      0x01, 0x01,       // Type 01, length 1 (invalid, need at least 2 for address)
-      0x00,             // Only 1 byte
+      0x01, 0x02,       // Type 01, length 2 (wraps to 258)
+      0x00, 0x70,       // Load address $7000
+      ...dataBytes,     // 256 bytes of data
+      0x02, 0x02,       // Type 02, length 2
+      0x00, 0x70,       // Entry point $7000
     ]);
 
-    expect(() => parseTRS80CMD(cmd)).toThrow("data block length must be at least 2");
+    const result = parseTRS80CMD(cmd);
+
+    expect(result.regions).toHaveLength(1);
+    expect(result.regions[0].startAddress).toBe(0x7000);
+    expect(result.regions[0].data).toHaveLength(256);
+    expect(result.regions[0].data).toEqual(dataBytes);
+    expect(result.entryPoint).toBe(0x7000);
+  });
+
+  test("handles length byte of 1 (wraps to 257: 255 data bytes)", () => {
+    // Length byte 1 wraps to 257 (1 + 256), meaning 255 data bytes
+    const dataBytes = new Uint8Array(255);
+    for (let i = 0; i < 255; i++) {
+      dataBytes[i] = i & 0xff;
+    }
+
+    const cmd = new Uint8Array([
+      0x01, 0x01,       // Type 01, length 1 (wraps to 257)
+      0x00, 0x60,       // Load address $6000
+      ...dataBytes,     // 255 bytes of data
+      0x02, 0x02,       // Type 02, length 2
+      0x00, 0x60,       // Entry point $6000
+    ]);
+
+    const result = parseTRS80CMD(cmd);
+
+    expect(result.regions).toHaveLength(1);
+    expect(result.regions[0].startAddress).toBe(0x6000);
+    expect(result.regions[0].data).toHaveLength(255);
+    expect(result.regions[0].data).toEqual(dataBytes);
+    expect(result.entryPoint).toBe(0x6000);
   });
 
   test("throws error when no data blocks found", () => {

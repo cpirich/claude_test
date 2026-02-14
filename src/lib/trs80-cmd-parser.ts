@@ -39,15 +39,19 @@ export function parseTRS80CMD(data: Uint8Array): CMDParseResult {
     offset += 2;
 
     // Convert length: 0 means 256 bytes
-    const effectiveLength = length === 0 ? 256 : length;
+    let effectiveLength = length === 0 ? 256 : length;
 
     if (recordType === 0x01) {
       // Type 01: Data block
       // Format: 01 LL AAAA DD DD DD ...
       // LL includes the 2 address bytes, so data length is LL - 2
-
-      if (effectiveLength < 2) {
-        throw new Error(`.CMD parse error at offset ${offset - 2}: data block length must be at least 2 (got ${length})`);
+      // The length byte is (actual_length mod 256). Since a data block needs
+      // at least 3 bytes (2 address + 1 data), values 0-2 indicate wrapping:
+      //   0 → 256 (254 data bytes) — already handled by 0→256 mapping above
+      //   1 → 257 (255 data bytes)
+      //   2 → 258 (256 data bytes)
+      if (effectiveLength < 3) {
+        effectiveLength += 256;
       }
 
       if (offset + effectiveLength > data.length) {
