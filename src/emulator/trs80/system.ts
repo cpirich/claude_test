@@ -220,9 +220,13 @@ export class TRS80System {
     if (loadsIntoROM) {
       this.reset();
     } else {
-      // For RAM-based software, set PC to entry point if specified
+      // For RAM-based software, jump to entry point like BASIC's SYSTEM command:
+      // set PC, enable interrupts, and clear halt state.
       if (entry.entryPoint !== undefined && entry.entryPoint !== 0) {
         this.cpu.pc = entry.entryPoint;
+        this.cpu.iff1 = true;
+        this.cpu.iff2 = true;
+        this.cpu.halted = false;
       }
     }
   }
