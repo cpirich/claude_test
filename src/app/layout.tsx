@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono, VT323 } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -23,6 +23,14 @@ const matrixSansRaster = localFont({
 export const metadata: Metadata = {
   title: "Claude Microcomputer Emulator",
   description: "Browser-based terminal-style emulator for early microcomputers",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
