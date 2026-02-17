@@ -1,14 +1,9 @@
 {
-  "enabledPlugins": {
-    "ralph-loop@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true
-  },
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "ENABLE_LSP_TOOL": "1"
   },
-  "plansDirectory": "plans",
   "permissions": {
-    "defaultMode": "dontAsk",
     "allow": [
       "Read",
       "Edit",
@@ -81,6 +76,19 @@
       "WebFetch(domain:www.emustudio.net)",
       "WebFetch(domain:ui.jln.dev)",
       "WebFetch(domain:commons.wikimedia.org)",
+      "WebFetch(domain:deskthority.net)",
+      "WebFetch(domain:terminals-wiki.org)",
+      "WebFetch(domain:jimlawless.net)",
+      "WebFetch(domain:www.chessprogramming.org)",
+      "WebFetch(domain:www.classic-computers.org.nz)",
+      "Bash(npx eslint:*)",
+      "Bash(cat:*)",
+      "Bash(unzip:*)",
+      "Bash(npx next build:*)",
+      "Bash(tr:*)",
+      "Bash(gh:*)",
+      "Bash(CI=1 npx playwright test:*)",
+      "Bash(find:*)",
       "mcp__browsermcp__browser_screenshot",
       "mcp__browsermcp__browser_snapshot",
       "mcp__browsermcp__browser_navigate",
@@ -92,7 +100,17 @@
       "mcp__browsermcp__browser_go_back",
       "mcp__browsermcp__browser_go_forward",
       "mcp__browsermcp__browser_wait",
-      "mcp__browsermcp__browser_get_console_logs"
+      "mcp__browsermcp__browser_get_console_logs",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__performance_start_trace",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_snapshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__click",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__press_key",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__fill",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__evaluate_script",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_console_messages",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__wait_for"
     ]
   },
   "hooks": {
@@ -107,5 +125,11 @@
         ]
       }
     ]
-  }
+  },
+  "enabledPlugins": {
+    "ralph-loop@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "chrome-devtools-mcp@chrome-devtools-plugins": true
+  },
+  "plansDirectory": "plans"
 }

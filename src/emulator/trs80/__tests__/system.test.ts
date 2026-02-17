@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { TRS80System } from '../system';
 import { TRS80_STUB_ROM } from '../roms/level2-basic-stub';
 import { VIDEO_BASE } from '../video';
+import type { SoftwareEntry } from '@/emulator/apple1/software-library';
 
 describe('TRS80System', () => {
   let system: TRS80System;
@@ -403,6 +404,83 @@ describe('TRS80System', () => {
     });
   });
 
+  describe('loadSoftware', () => {
+    it('should set interrupts enabled and clear halt for RAM programs', () => {
+      system.loadROM(TRS80_STUB_ROM);
+      system.reset();
+
+      // Simulate a halted CPU with interrupts disabled
+      system.cpu.halted = true;
+      system.cpu.iff1 = false;
+      system.cpu.iff2 = false;
+
+      const entry: SoftwareEntry = {
+        id: 'test-cmd',
+        name: 'Test .CMD',
+        description: 'Test program',
+        category: 'game',
+        regions: [{ startAddress: 0x5000, data: new Uint8Array([0xc9]) }], // RET
+        entryPoint: 0x5000,
+        author: 'Test',
+        sizeBytes: 1,
+        addressRange: '$5000',
+        isStub: false,
+      };
+
+      system.loadSoftware(entry);
+
+      expect(system.cpu.pc).toBe(0x5000);
+      expect(system.cpu.iff1).toBe(true);
+      expect(system.cpu.iff2).toBe(true);
+      expect(system.cpu.halted).toBe(false);
+    });
+
+    it('should not modify CPU state for ROM-based programs', () => {
+      // Loading into ROM space ($0000-$2FFF) should reset instead
+      const entry: SoftwareEntry = {
+        id: 'test-rom',
+        name: 'Test ROM',
+        description: 'Test ROM program',
+        category: 'game',
+        regions: [{ startAddress: 0x0000, data: new Uint8Array([0x76]) }], // HALT
+        entryPoint: 0x0000,
+        author: 'Test',
+        sizeBytes: 1,
+        addressRange: '$0000',
+        isStub: false,
+      };
+
+      system.loadSoftware(entry);
+
+      // After reset, PC should be at 0 (from reset, not entryPoint setting)
+      expect(system.cpu.pc).toBe(0x0000);
+    });
+
+    it('should not set PC for RAM programs without entry point', () => {
+      system.loadROM(TRS80_STUB_ROM);
+      system.reset();
+      system.cpu.pc = 0x1234;
+
+      const entry: SoftwareEntry = {
+        id: 'test-data',
+        name: 'Test Data',
+        description: 'Data-only load',
+        category: 'game',
+        regions: [{ startAddress: 0x5000, data: new Uint8Array([0x00]) }],
+        entryPoint: 0, // no entry point
+        author: 'Test',
+        sizeBytes: 1,
+        addressRange: '$5000',
+        isStub: false,
+      };
+
+      system.loadSoftware(entry);
+
+      // PC should remain unchanged since entryPoint is 0
+      expect(system.cpu.pc).toBe(0x1234);
+    });
+  });
+
   describe('Level II BASIC display simulation', () => {
     it('should display a string written character-by-character via CALL/RET', () => {
       // Simulate Level II BASIC's character output pattern:
@@ -671,6 +749,84 @@ describe('TRS80System', () => {
       expect(system.isHalted()).toBe(true);
       const row0 = system.video.getRow(0);
       expect(row0.substring(0, str.length)).toBe('HELLO WORLD');
+    });
+  });
+
+  describe('loadSoftware with RAM-based entry points', () => {
+    it('should set interrupts enabled and clear halt for .CMD programs', () => {
+      // This test verifies that loadSoftware() correctly configures CPU state
+      // for RAM-based programs (like .CMD files), matching the state that
+      // Level II BASIC's SYSTEM command would leave.
+      system.loadROM(TRS80_STUB_ROM);
+      system.reset();
+
+      // Simulate a halted CPU with interrupts disabled (worst case)
+      system.cpu.halted = true;
+      system.cpu.iff1 = false;
+      system.cpu.iff2 = false;
+
+      // Create a minimal .CMD-like entry with a RAM region and entry point
+      const entry = {
+        id: 'test-cmd',
+        title: 'Test .CMD',
+        format: 'cmd' as const,
+        regions: [
+          {
+            startAddress: 0x5000,
+            data: new Uint8Array([0xc9]), // RET instruction
+          },
+        ],
+        entryPoint: 0x5000,
+      };
+
+      system.loadSoftware(entry);
+
+      // Verify CPU state is configured for execution
+      expect(system.cpu.pc).toBe(0x5000);
+      expect(system.cpu.iff1).toBe(true);  // interrupts enabled
+      expect(system.cpu.iff2).toBe(true);  // interrupt state preserved
+      expect(system.cpu.halted).toBe(false); // CPU ready to execute
+    });
+
+    it('should reset when loading into ROM space', () => {
+      // Verify that ROM-based software triggers a reset instead
+      const romEntry = {
+        id: 'test-rom',
+        title: 'Test ROM',
+        format: 'rom' as const,
+        regions: [
+          {
+            startAddress: 0x0000,
+            data: new Uint8Array([0x00, 0x00, 0x76]), // NOP, NOP, HALT
+          },
+        ],
+      };
+
+      system.loadSoftware(romEntry);
+
+      // ROM load should reset, putting PC at 0
+      expect(system.cpu.pc).toBe(0x0000);
+    });
+
+    it('should not modify PC if no entry point is specified', () => {
+      // Verify that RAM software without an entry point doesn't jump
+      const pc = system.cpu.pc;
+      const entry = {
+        id: 'test-data',
+        title: 'Test Data',
+        format: 'bin' as const,
+        regions: [
+          {
+            startAddress: 0x5000,
+            data: new Uint8Array([0x00, 0x01, 0x02]),
+          },
+        ],
+      };
+
+      system.loadSoftware(entry);
+
+      // PC should be unchanged
+      expect(system.cpu.pc).toBe(pc);
     });
   });
 });
