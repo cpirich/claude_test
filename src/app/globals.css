@@ -308,7 +308,6 @@ body {
 }
 
 .mobile-special-key-active {
-  background: rgba(51, 255, 51, 0.2);
   border-color: var(--color-terminal-green);
   color: #000;
   background-color: var(--color-terminal-green);

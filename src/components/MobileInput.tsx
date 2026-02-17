@@ -94,6 +94,7 @@ export function MobileInput({ machine, getContainer, disabled }: MobileInputProp
 
       // Auto-deactivate CTRL after one keypress
       if (ctrlActiveRef.current) {
+        ctrlActiveRef.current = false;
         setCtrlActive(false);
       }
     },
@@ -102,22 +103,20 @@ export function MobileInput({ machine, getContainer, disabled }: MobileInputProp
 
   const handleBeforeInput = useCallback(
     (e: React.SyntheticEvent<HTMLInputElement>) => {
+      e.preventDefault();
       const nativeEvent = e.nativeEvent as InputEvent;
 
       if (nativeEvent.inputType === "insertLineBreak" || nativeEvent.inputType === "insertParagraph") {
-        e.preventDefault();
         dispatchKey("Enter", { code: "Enter" });
         return;
       }
 
       if (nativeEvent.inputType === "deleteContentBackward") {
-        e.preventDefault();
         dispatchKey("Backspace", { code: "Backspace" });
         return;
       }
 
       if (nativeEvent.inputType === "insertText" && nativeEvent.data) {
-        e.preventDefault();
         const chars = nativeEvent.data;
         for (const char of chars) {
           dispatchKey(char);
