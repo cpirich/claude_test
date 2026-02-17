@@ -110,7 +110,32 @@
       "mcp__plugin_chrome-devtools-mcp_chrome-devtools__fill",
       "mcp__plugin_chrome-devtools-mcp_chrome-devtools__evaluate_script",
       "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_console_messages",
-      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__wait_for"
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__wait_for",
+      "Bash(PORT=3100 npm run dev:*)",
+      "mcp__chrome-devtools__new_page",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__list_pages",
+      "mcp__chrome-devtools__performance_start_trace",
+      "mcp__chrome-devtools__press_key",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__evaluate_script",
+      "mcp__chrome-devtools__list_console_messages",
+      "mcp__chrome-devtools__wait_for",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(grep:*)",
+      "mcp__chrome-devtools__emulate",
+      "mcp__chrome-devtools__resize_page",
+      "mcp__chrome-devtools__select_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__emulate",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__resize_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__select_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__new_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__get_console_message",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__close_page"
     ]
   },
   "hooks": {
@@ -119,7 +144,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun x gh-setup-hooks",
+            "command": "npx gh-setup-hooks",
             "timeout": 120
           }
         ]

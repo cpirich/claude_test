@@ -755,7 +755,7 @@ export function SoftwareLibraryModal({
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative border border-terminal-green bg-terminal-bg max-w-lg w-full mx-4 font-mono text-sm max-h-[80vh] flex flex-col">
+      <div className="relative border border-terminal-green bg-terminal-bg max-w-lg w-full mx-4 font-mono text-sm max-h-[80vh] flex flex-col max-md:mx-0 max-md:max-w-none max-md:h-full max-md:max-h-full max-md:border-0">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-terminal-border shrink-0">
           <span className="text-terminal-green font-bold">SOFTWARE LIBRARY</span>

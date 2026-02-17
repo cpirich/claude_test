@@ -120,12 +120,18 @@ function renderTrs80Row(
 
 export interface TerminalHandle {
   typeCommand: (cmd: string) => void;
+  getContainer: () => HTMLElement | null;
+  reset: () => void;
+  openLibrary: () => void;
+  copyText: () => void;
+  panelAction?: (action: string) => void;
 }
 
 interface TerminalDisplayProps {
   machine: "apple1" | "trs80" | "altair8800";
   terminalRef?: React.RefObject<TerminalHandle | null>;
   onSoftwareLoad?: (softwareId: string) => void;
+  isMobile?: boolean;
 }
 
 const TERMINAL_COLS: Record<string, number> = {
@@ -168,7 +174,7 @@ function LoadToast({ entry, onDismiss }: { entry: SoftwareEntry; onDismiss: () =
   );
 }
 
-function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRef?: React.RefObject<TerminalHandle | null>; onSoftwareLoad?: (id: string) => void }) {
+function Apple1Terminal({ terminalHandleRef, onSoftwareLoad, isMobile }: { terminalHandleRef?: React.RefObject<TerminalHandle | null>; onSoftwareLoad?: (id: string) => void; isMobile?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
   const [cursorVisible, setCursorVisible] = useState(true);
@@ -179,8 +185,6 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
 
   const { state, keyPress, reset, loadSoftware, typeCommand } = useApple1();
 
-  // Expose typeCommand via ref
-  useImperativeHandle(terminalHandleRef, () => ({ typeCommand }), [typeCommand]);
   const { lines, cursorRow, cursorCol } = state;
   const cols = TERMINAL_COLS.apple1;
   const rows = TERMINAL_ROWS.apple1;
@@ -215,8 +219,8 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
     const container = containerRef.current;
     if (!pre || !container) return;
     const containerRect = container.getBoundingClientRect();
-    const headerHeight = 28;
-    const pad = 16;
+    const headerHeight = isMobile ? 0 : 28;
+    const pad = isMobile ? 8 : 16;
     const availW = containerRect.width - pad * 2;
     const availH = containerRect.height - headerHeight - pad * 2;
 
@@ -233,9 +237,15 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
 
     const natH = pre.scrollHeight;
     if (natW > 0 && natH > 0) {
-      setTermScale({ x: availW / natW, y: availH / natH });
+      if (isMobile) {
+        // Uniform scaling on mobile to preserve aspect ratio
+        const s = Math.min(availW / natW, availH / natH);
+        setTermScale({ x: s, y: s });
+      } else {
+        setTermScale({ x: availW / natW, y: availH / natH });
+      }
     }
-  }, [lines, cols]);
+  }, [cols, rows, isMobile]);
 
   const focusTerminal = useCallback(() => {
     containerRef.current?.focus();
@@ -264,6 +274,15 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
     });
   }, [lines]);
 
+  // Expose actions via ref
+  useImperativeHandle(terminalHandleRef, () => ({
+    typeCommand,
+    getContainer: () => containerRef.current,
+    reset: () => { reset(); setSoftwareName("Woz Monitor"); },
+    openLibrary: () => setLibraryOpen(true),
+    copyText: copyTerminalText,
+  }), [typeCommand, reset, copyTerminalText]);
+
   // Render rows from emulator terminal state
   // lines is already a string[] of length ROWS, each padded to COLS
   const displayLines = lines.length > 0 ? lines : Array(rows).fill(" ".repeat(cols));
@@ -271,11 +290,12 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
   return (
     <div
       ref={containerRef}
-      className="apple1-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative mx-auto"
-      style={{ width: "720px", height: "540px" }}
+      className={`apple1-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative ${isMobile ? "" : "mx-auto"}${isMobile ? " select-none" : ""}`}
+      style={isMobile ? { width: "100%", height: "100%" } : { width: "720px", height: "540px" }}
       onClick={focusTerminal}
       tabIndex={0}
     >
+      {!isMobile && (
       <div className="flex items-center justify-between px-3 py-1 border-b border-terminal-border select-none">
         <span className="text-xs text-terminal-border truncate">{softwareName}</span>
         <div className="flex gap-2">
@@ -314,6 +334,7 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
         </div>
         <span className="text-xs text-terminal-border">{cols}&times;{rows}</span>
       </div>
+      )}
       <pre
         ref={preRef}
         className="apple1-terminal overflow-hidden"
@@ -321,8 +342,8 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
           transform: `scale(${termScale.x}, ${termScale.y})`,
           transformOrigin: "top left",
           position: "absolute",
-          top: "44px",
-          left: "16px",
+          top: isMobile ? "8px" : "44px",
+          left: isMobile ? "8px" : "16px",
         }}
       >
         {displayLines.map((line: string, i: number) => (
@@ -364,7 +385,7 @@ function Apple1Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleR
   );
 }
 
-function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRef?: React.RefObject<TerminalHandle | null>; onSoftwareLoad?: (id: string) => void }) {
+function Trs80Terminal({ terminalHandleRef, onSoftwareLoad, isMobile }: { terminalHandleRef?: React.RefObject<TerminalHandle | null>; onSoftwareLoad?: (id: string) => void; isMobile?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
   const [cursorVisible, setCursorVisible] = useState(true);
@@ -374,9 +395,6 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
   const [termScale, setTermScale] = useState({ x: 1, y: 1 });
 
   const { state, onKeyDown, onKeyUp, reset, loadSoftware, typeCommand } = useTrs80();
-
-  // Expose typeCommand via ref
-  useImperativeHandle(terminalHandleRef, () => ({ typeCommand }), [typeCommand]);
 
   const { lines, screenCodes, cursorRow, cursorCol } = state;
   const cols = TERMINAL_COLS.trs80;
@@ -416,8 +434,8 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
     const container = containerRef.current;
     if (!pre || !container) return;
     const containerRect = container.getBoundingClientRect();
-    const headerHeight = 28;
-    const pad = 16;
+    const headerHeight = isMobile ? 0 : 28;
+    const pad = isMobile ? 8 : 16;
     const availW = containerRect.width - pad * 2;
     const availH = containerRect.height - headerHeight - pad * 2;
 
@@ -434,9 +452,14 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
 
     const natH = pre.scrollHeight;
     if (natW > 0 && natH > 0) {
-      setTermScale({ x: availW / natW, y: availH / natH });
+      if (isMobile) {
+        const s = Math.min(availW / natW, availH / natH);
+        setTermScale({ x: s, y: s });
+      } else {
+        setTermScale({ x: availW / natW, y: availH / natH });
+      }
     }
-  }, [lines, cols]);
+  }, [cols, rows, isMobile]);
 
   const focusTerminal = useCallback(() => {
     containerRef.current?.focus();
@@ -465,6 +488,15 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
     });
   }, [lines]);
 
+  // Expose actions via ref
+  useImperativeHandle(terminalHandleRef, () => ({
+    typeCommand,
+    getContainer: () => containerRef.current,
+    reset: () => { reset(); setSoftwareName("Stub ROM"); },
+    openLibrary: () => setLibraryOpen(true),
+    copyText: copyTerminalText,
+  }), [typeCommand, reset, copyTerminalText]);
+
   const displayLines = lines.length > 0 ? lines : Array(rows).fill(" ".repeat(cols));
 
   // Hide emulator cursor when BASIC draws its own underscore cursor
@@ -474,11 +506,12 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
   return (
     <div
       ref={containerRef}
-      className="trs80-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative mx-auto"
-      style={{ width: "720px", height: "540px" }}
+      className={`trs80-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative ${isMobile ? "" : "mx-auto"}${isMobile ? " select-none" : ""}`}
+      style={isMobile ? { width: "100%", height: "100%" } : { width: "720px", height: "540px" }}
       onClick={focusTerminal}
       tabIndex={0}
     >
+      {!isMobile && (
       <div className="flex items-center justify-between px-3 py-1 border-b border-terminal-border select-none">
         <span className="text-xs text-terminal-border truncate">{softwareName}</span>
         <div className="flex gap-2">
@@ -517,6 +550,7 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
         </div>
         <span className="text-xs text-terminal-border">{cols}&times;{rows}</span>
       </div>
+      )}
       <pre
         ref={preRef}
         className="trs80-terminal overflow-hidden"
@@ -524,8 +558,8 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
           transform: `scale(${termScale.x}, ${termScale.y})`,
           transformOrigin: "top left",
           position: "absolute",
-          top: "44px",
-          left: "16px",
+          top: isMobile ? "8px" : "44px",
+          left: isMobile ? "8px" : "16px",
         }}
       >
         {displayLines.map((line: string, i: number) => (
@@ -560,7 +594,7 @@ function Trs80Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRe
   );
 }
 
-function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHandleRef?: React.RefObject<TerminalHandle | null>; onSoftwareLoad?: (id: string) => void }) {
+function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad, isMobile }: { terminalHandleRef?: React.RefObject<TerminalHandle | null>; onSoftwareLoad?: (id: string) => void; isMobile?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
   const [cursorVisible, setCursorVisible] = useState(true);
@@ -573,9 +607,6 @@ function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHan
     state, panelState, onKeyDown, reset, loadSoftware, typeCommand,
     panelAction, toggleAddressSwitch, toggleDataSwitch,
   } = useAltair8800();
-
-  // Expose typeCommand via ref
-  useImperativeHandle(terminalHandleRef, () => ({ typeCommand }), [typeCommand]);
 
   const { lines, cursorRow, cursorCol } = state;
   const cols = TERMINAL_COLS.altair8800;
@@ -614,8 +645,8 @@ function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHan
     const container = containerRef.current;
     if (!pre || !container) return;
     const containerRect = container.getBoundingClientRect();
-    const headerHeight = 28;
-    const pad = 16;
+    const headerHeight = isMobile ? 0 : 28;
+    const pad = isMobile ? 8 : 16;
     const availW = containerRect.width - pad * 2;
     const availH = containerRect.height - headerHeight - pad * 2;
 
@@ -631,9 +662,14 @@ function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHan
 
     const natH = pre.scrollHeight;
     if (natW > 0 && natH > 0) {
-      setTermScale({ x: availW / natW, y: availH / natH });
+      if (isMobile) {
+        const s = Math.min(availW / natW, availH / natH);
+        setTermScale({ x: s, y: s });
+      } else {
+        setTermScale({ x: availW / natW, y: availH / natH });
+      }
     }
-  }, [lines, cols]);
+  }, [cols, rows, isMobile]);
 
   const focusTerminal = useCallback(() => {
     containerRef.current?.focus();
@@ -662,26 +698,39 @@ function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHan
     });
   }, [lines]);
 
+  // Expose actions via ref
+  useImperativeHandle(terminalHandleRef, () => ({
+    typeCommand,
+    getContainer: () => containerRef.current,
+    reset: () => { reset(); setSoftwareName("TURNKEY BOOT"); },
+    openLibrary: () => setLibraryOpen(true),
+    copyText: copyTerminalText,
+    panelAction: (action: string) => panelAction(action as Parameters<typeof panelAction>[0]),
+  }), [typeCommand, reset, copyTerminalText, panelAction]);
+
   const displayLines = lines.length > 0 ? lines : Array(rows).fill(" ".repeat(cols));
 
   return (
-    <div className="flex flex-col gap-2 mx-auto" style={{ width: "720px" }}>
-      {/* Front Panel */}
-      <Altair8800Panel
-        panelState={panelState}
-        onToggleAddressSwitch={toggleAddressSwitch}
-        onToggleDataSwitch={toggleDataSwitch}
-        onPanelAction={panelAction}
-      />
+    <div className={`flex flex-col gap-2 ${isMobile ? "" : "mx-auto"}`} style={isMobile ? { width: "100%", height: "100%" } : { width: "720px" }}>
+      {/* Front Panel — hidden on mobile (controls available via MobileOverlay) */}
+      {!isMobile && (
+        <Altair8800Panel
+          panelState={panelState}
+          onToggleAddressSwitch={toggleAddressSwitch}
+          onToggleDataSwitch={toggleDataSwitch}
+          onPanelAction={panelAction}
+        />
+      )}
 
       {/* Serial Terminal */}
       <div
         ref={containerRef}
-        className="altair-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative"
-        style={{ width: "720px", height: "400px" }}
+        className={`altair-screen border border-terminal-border bg-terminal-bg flex flex-col cursor-text outline-none relative${isMobile ? " select-none flex-1" : ""}`}
+        style={isMobile ? {} : { width: "720px", height: "400px" }}
         onClick={focusTerminal}
         tabIndex={0}
       >
+        {!isMobile && (
         <div className="flex items-center justify-between px-3 py-1 border-b border-terminal-border select-none">
           <span className="text-xs text-terminal-border truncate">{softwareName}</span>
           <div className="flex gap-2">
@@ -720,6 +769,7 @@ function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHan
           </div>
           <span className="text-xs text-terminal-border">{cols}&times;{rows}</span>
         </div>
+        )}
         <pre
           ref={preRef}
           className="altair-terminal overflow-hidden"
@@ -727,8 +777,8 @@ function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHan
             transform: `scale(${termScale.x}, ${termScale.y})`,
             transformOrigin: "top left",
             position: "absolute",
-            top: "44px",
-            left: "16px",
+            top: isMobile ? "8px" : "44px",
+            left: isMobile ? "8px" : "16px",
           }}
         >
           {displayLines.map((line: string, i: number) => (
@@ -771,12 +821,12 @@ function Altair8800Terminal({ terminalHandleRef, onSoftwareLoad }: { terminalHan
   );
 }
 
-export function TerminalDisplay({ machine, terminalRef, onSoftwareLoad }: TerminalDisplayProps) {
+export function TerminalDisplay({ machine, terminalRef, onSoftwareLoad, isMobile }: TerminalDisplayProps) {
   if (machine === "apple1") {
-    return <Apple1Terminal terminalHandleRef={terminalRef} onSoftwareLoad={onSoftwareLoad} />;
+    return <Apple1Terminal terminalHandleRef={terminalRef} onSoftwareLoad={onSoftwareLoad} isMobile={isMobile} />;
   }
   if (machine === "altair8800") {
-    return <Altair8800Terminal terminalHandleRef={terminalRef} onSoftwareLoad={onSoftwareLoad} />;
+    return <Altair8800Terminal terminalHandleRef={terminalRef} onSoftwareLoad={onSoftwareLoad} isMobile={isMobile} />;
   }
-  return <Trs80Terminal terminalHandleRef={terminalRef} onSoftwareLoad={onSoftwareLoad} />;
+  return <Trs80Terminal terminalHandleRef={terminalRef} onSoftwareLoad={onSoftwareLoad} isMobile={isMobile} />;
 }

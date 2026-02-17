@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { MachineInfo } from "@/components/MachineInfo";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { MobileInput, useKeyboardHeight } from "@/components/MobileInput";
+import { MobileOverlay } from "@/components/MobileOverlay";
 import type { TerminalHandle } from "@/components/TerminalDisplay";
 
 const TerminalDisplay = dynamic(
@@ -42,16 +45,22 @@ const MACHINES: Record<Machine, { label: string; spec: string }> = {
   altair8800: { label: "Altair 8800", spec: "8080 @ 2 MHz \u00b7 80\u00d724 + Panel" },
 };
 
+/** Height of the special-key toolbar in pixels */
+const TOOLBAR_HEIGHT = 36;
+
 interface EmulatorPageProps {
   initialMachine: Machine;
 }
 
 export function EmulatorPage({ initialMachine }: EmulatorPageProps) {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [selectedMachine, setSelectedMachine] = useState<Machine>(initialMachine);
   const [infoCollapsed, setInfoCollapsed] = useState(false);
   const terminalRef = useRef<TerminalHandle | null>(null);
   const [currentSoftware, setCurrentSoftware] = useState<string | null>(null);
+  const [mobileInputDisabled, setMobileInputDisabled] = useState(false);
+  const keyboardHeight = useKeyboardHeight();
 
   const handleSoftwareLoad = useCallback((softwareId: string) => {
     setCurrentSoftware(softwareId);
@@ -64,6 +73,69 @@ export function EmulatorPage({ initialMachine }: EmulatorPageProps) {
     router.push(`/${machine}`, { scroll: false });
   };
 
+  const getContainer = useCallback(() => {
+    return terminalRef.current?.getContainer() ?? null;
+  }, []);
+
+  const handleMobileReset = useCallback(() => {
+    terminalRef.current?.reset();
+  }, []);
+
+  const handleMobileLoad = useCallback(() => {
+    terminalRef.current?.openLibrary();
+  }, []);
+
+  const handleMobileCopy = useCallback(() => {
+    terminalRef.current?.copyText();
+  }, []);
+
+  const handleMobilePanelAction = useCallback((action: string) => {
+    terminalRef.current?.panelAction?.(action);
+  }, []);
+
+  // --- MOBILE LAYOUT ---
+  if (isMobile) {
+    // Calculate terminal height: full viewport minus keyboard minus toolbar
+    const terminalHeight = keyboardHeight > 0
+      ? `calc(100dvh - ${keyboardHeight}px - ${TOOLBAR_HEIGHT}px)`
+      : `calc(100dvh - ${TOOLBAR_HEIGHT}px)`;
+
+    return (
+      <div className="mobile-page-lock">
+        {/* Terminal fills available space above toolbar+keyboard */}
+        <div style={{ height: terminalHeight, width: "100%" }}>
+          <TerminalDisplay
+            machine={selectedMachine}
+            terminalRef={terminalRef}
+            onSoftwareLoad={handleSoftwareLoad}
+            isMobile
+          />
+        </div>
+
+        {/* MobileInput: hidden input + special-key toolbar */}
+        <MobileInput
+          machine={selectedMachine}
+          getContainer={getContainer}
+          disabled={mobileInputDisabled}
+        />
+
+        {/* MobileOverlay: FAB + Sheet */}
+        <MobileOverlay
+          selectedMachine={selectedMachine}
+          onMachineChange={(m) => handleMachineChange(m)}
+          onReset={handleMobileReset}
+          onLoad={handleMobileLoad}
+          onCopy={handleMobileCopy}
+          currentSoftware={currentSoftware}
+          onSheetOpen={() => setMobileInputDisabled(true)}
+          onSheetClose={() => setMobileInputDisabled(false)}
+          onPanelAction={handleMobilePanelAction}
+        />
+      </div>
+    );
+  }
+
+  // --- DESKTOP LAYOUT (unchanged) ---
   return (
     <div className="min-h-screen flex flex-col items-center p-4">
       <main className="w-full max-w-3xl flex-1 flex flex-col">

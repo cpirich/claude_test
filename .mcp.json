@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "claude-in-chrome": {
+    "chrome-devtools": {
       "command": "npx",
-      "args": ["@anthropic-ai/claude-in-chrome-mcp@latest"]
+      "args": ["chrome-devtools-mcp@latest", "--isolated"]
     }
   }
 }
